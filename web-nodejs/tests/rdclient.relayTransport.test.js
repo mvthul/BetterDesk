@@ -98,6 +98,7 @@ describe('RDClient raw relay messages', () => {
         expect(client._handleRelayMessage).toHaveBeenCalledTimes(1);
         expect(Array.from(client._handleRelayMessage.mock.calls[0][0])).toEqual(Array.from(raw));
     });
+<<<<<<< HEAD
 
     it('accepts PeerInfo with the legacy 3.3.2 input implementation', () => {
         const RDClient = loadBrowserScript('public/js/rdclient/client.js').RDClient;
@@ -155,6 +156,8 @@ describe('RDClient raw relay messages', () => {
     });
 =======
 >>>>>>> 0214b346 (fix(rdclient): tolerate legacy input implementations)
+=======
+>>>>>>> da43fc06 (fix(rdclient): use native WebSocket relay framing)
 });
 
 describe('RDFileConnection raw relay messages', () => {
