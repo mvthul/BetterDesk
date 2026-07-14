@@ -111,6 +111,7 @@ describe('RDClient raw relay messages', () => {
         expect(() => client.setKeyboardMode('Auto')).not.toThrow();
         expect(client._currentDisplay).toBe(0);
     });
+<<<<<<< HEAD
 
     it('lazy-loads dedicated file-transfer dependencies for legacy viewer layouts', async () => {
         const appended = [];
@@ -152,6 +153,8 @@ describe('RDClient raw relay messages', () => {
         expect(typeof sandbox.RDCompress).toBe('function');
         expect(typeof sandbox.RDFileConnection).toBe('function');
     });
+=======
+>>>>>>> 0214b346 (fix(rdclient): tolerate legacy input implementations)
 });
 
 describe('RDFileConnection raw relay messages', () => {
