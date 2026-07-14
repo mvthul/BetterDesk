@@ -15,6 +15,7 @@
 ## [3.5.3] — 2026-08-01
 
 ### Fixed
+<<<<<<< HEAD
 - **Dashboard Copy deploy string with invalid/placeholder public key (#340):** client config / deploy string / QR now require a valid Ed25519 key (base64 → 32 bytes), reject placeholders, and fall back to the live Go `GET /api/server-key` when `id_ed25519.pub` is missing or bad. Windows installer also sets `PUB_KEY_PATH` in the console NSSM environment. Ships via panel update (re-run `betterdesk.ps1` service setup to refresh NSSM env on Windows).
 
 ### Changed
@@ -290,6 +291,15 @@
 ---
 
 ## [3.3.171] — 2026-07-24
+=======
+- **Browser file transfer on legacy viewer layouts:** lazy-load the dedicated
+  file relay and compression runtime, wait for the file-transfer session before
+  browsing, and report connection failures through the UI.
+- **Browser Remote Desktop over relay WSS:** send raw RustDesk protobuf
+  payloads as native WebSocket messages and translate framing only in the
+  optional Node TCP bridge, including mixed browser-WebSocket/desktop-TCP
+  sessions.
+>>>>>>> 7a5af13e (fix(rdclient): initialize dedicated file relay lazily)
 
 ### Changed
 - _(none yet)_
