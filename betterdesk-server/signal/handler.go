@@ -24,14 +24,11 @@ import (
 	pb "github.com/unitronix/betterdesk-server/proto"
 )
 
-// refuseRelayProtocolMismatch is returned when one peer uses WebSocket Mode
-// and the other uses native TCP/UDP — their relay framings are incompatible (#290).
-const refuseRelayProtocolMismatch = "Protocol mismatch: WebSocket and native TCP/UDP cannot share a relay session"
-
 // refuseInitiatorNotAuthorized is returned when PunchHole/RequestRelay comes from
 // a peer that is not registered (or not enrollment-approved in managed/locked).
 const refuseInitiatorNotAuthorized = "Not authorized"
 
+<<<<<<< HEAD
 // panelWebRemoteInitiatorID is the synthetic initiator id logged when PunchHole/
 // RequestRelay arrives from the Node panel WebSocket→TCP proxy (#302 Web Remote).
 const panelWebRemoteInitiatorID = "panel-web-remote"
@@ -44,6 +41,8 @@ func relayTransportMismatch(initiator, target peer.ConnType) bool {
 	return (initiator == peer.ConnWS) != (target == peer.ConnWS)
 }
 
+=======
+>>>>>>> eb692cc3 (fix(relay): bridge mixed WebSocket and native framing)
 // handleUDPMessage dispatches a UDP message to the appropriate handler.
 func (s *Server) handleUDPMessage(msg *pb.RendezvousMessage, raddr *net.UDPAddr) {
 	switch {
@@ -1157,26 +1156,6 @@ func (s *Server) handleRequestRelay(msg *pb.RequestRelay, raddr *net.UDPAddr) {
 		return
 	}
 
-	// WebSocket Mode and native TCP/UDP cannot share a relay session (#290).
-	initiatorType := peer.ConnUDP
-	if initiator := s.peers.FindByIP(raddr.IP); initiator != nil {
-		initiatorType = initiator.ConnType
-	}
-	if relayTransportMismatch(initiatorType, target.ConnType) {
-		log.Printf("[signal] RequestRelay: protocol mismatch initiator=%s target=%s (%s vs %s)",
-			raddr, targetID, initiatorType, target.ConnType)
-		resp := &pb.RendezvousMessage{
-			Union: &pb.RendezvousMessage_RelayResponse{
-				RelayResponse: &pb.RelayResponse{
-					RefuseReason: refuseRelayProtocolMismatch,
-					RelayServer:  relayServer,
-				},
-			},
-		}
-		s.sendUDP(resp, raddr)
-		return
-	}
-
 	initiatorID := s.peerIDForAddr(raddr)
 	if s.billing != nil {
 		if check := s.billing.CheckConnection(targetID); !check.Allowed {
@@ -1272,9 +1251,10 @@ func (s *Server) handleRequestRelay(msg *pb.RequestRelay, raddr *net.UDPAddr) {
 // Previous behavior (sending nothing back and waiting for the target's
 // RelayResponse) caused timeouts for TCP signaling clients (e.g. logged-in users).
 //
-// initiatorHint is ConnTCP for native TCP signal or ConnWS for WebSocket Mode;
-// if the initiator is registered, their stored ConnType wins.
-func (s *Server) handleRequestRelayTCP(msg *pb.RequestRelay, raddr *net.UDPAddr, initiatorHint peer.ConnType) *pb.RendezvousMessage {
+// The transport hint remains part of this internal API because callers know
+// whether signaling arrived over TCP or WebSocket. Relay transport differences
+// are handled by the framing bridge and are not rejected here.
+func (s *Server) handleRequestRelayTCP(msg *pb.RequestRelay, raddr *net.UDPAddr, _ peer.ConnType) *pb.RendezvousMessage {
 	if raddr == nil {
 		log.Printf("[signal] RequestRelay (TCP): nil address, ignoring")
 		return nil
@@ -1320,24 +1300,6 @@ func (s *Server) handleRequestRelayTCP(msg *pb.RequestRelay, raddr *net.UDPAddr,
 			Union: &pb.RendezvousMessage_RelayResponse{
 				RelayResponse: &pb.RelayResponse{
 					RefuseReason: "Target offline",
-					RelayServer:  relayServer,
-				},
-			},
-		}
-	}
-
-	// WebSocket Mode and native TCP/UDP cannot share a relay session (#290).
-	initiatorType := initiatorHint
-	if initiator := s.peers.FindByIP(raddr.IP); initiator != nil {
-		initiatorType = initiator.ConnType
-	}
-	if relayTransportMismatch(initiatorType, target.ConnType) {
-		log.Printf("[signal] RequestRelay (TCP): protocol mismatch initiator=%s target=%s (%s vs %s)",
-			raddr, targetID, initiatorType, target.ConnType)
-		return &pb.RendezvousMessage{
-			Union: &pb.RendezvousMessage_RelayResponse{
-				RelayResponse: &pb.RelayResponse{
-					RefuseReason: refuseRelayProtocolMismatch,
 					RelayServer:  relayServer,
 				},
 			},
