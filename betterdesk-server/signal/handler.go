@@ -457,10 +457,24 @@ func (s *Server) processRegisterPk(msg *pb.RegisterPk, addrStr string) *pb.Rende
 	entry := s.peers.Get(id)
 	if entry == nil {
 		entry = &peer.Entry{
-			ID:      id,
-			LastReg: time.Now(),
+			ID:       id,
+			IP:       addrStr,
+			ConnType: peer.ConnWS,
+			LastReg:  time.Now(),
+		}
+		if udpAddr, err := net.ResolveUDPAddr("udp", addrStr); err == nil && udpAddr != nil && udpAddr.IP != nil {
+			entry.UDPAddr = udpAddr
 		}
 		s.peers.Put(entry)
+	} else {
+		if entry.IP == "" && addrStr != "" {
+			entry.IP = addrStr
+		}
+		if entry.UDPAddr == nil && addrStr != "" {
+			if udpAddr, err := net.ResolveUDPAddr("udp", addrStr); err == nil && udpAddr != nil && udpAddr.IP != nil {
+				entry.UDPAddr = udpAddr
+			}
+		}
 	}
 
 	// Check UUID consistency (prevent hijacking)
