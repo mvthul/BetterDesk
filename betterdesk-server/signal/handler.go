@@ -457,10 +457,9 @@ func (s *Server) processRegisterPk(msg *pb.RegisterPk, addrStr string) *pb.Rende
 	entry := s.peers.Get(id)
 	if entry == nil {
 		entry = &peer.Entry{
-			ID:       id,
-			IP:       addrStr,
-			ConnType: peer.ConnWS,
-			LastReg:  time.Now(),
+			ID:      id,
+			IP:      addrStr,
+			LastReg: time.Now(),
 		}
 		if udpAddr, err := net.ResolveUDPAddr("udp", addrStr); err == nil && udpAddr != nil && udpAddr.IP != nil {
 			entry.UDPAddr = udpAddr
