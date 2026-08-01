@@ -176,20 +176,34 @@ app.use('/api/', apiLimiter);
 const { goApiProxy } = require('./middleware/goApiProxy');
 const useGoProxy = config.apiProxyToGo && config.serverBackend === 'betterdesk';
 if (useGoProxy) {
-    const RUSTDESK_CLIENT_API_PATHS = [
-        '/api/login', '/api/logout', '/api/sysinfo', '/api/sysinfo_ver', '/api/heartbeat',
-        '/api/peers', '/api/server-key', '/api/ab', '/api/ab/get', '/api/ab/personal',
-        '/api/hardware-id', '/api/strategies', '/api/login-options', '/api/currentUser'
+    const GO_PROXY_PREFIXES = [
+        '/api/login',
+        '/api/logout',
+        '/api/sysinfo',
+        '/api/heartbeat',
+        '/api/peers',
+        '/api/server-key',
+        '/api/ab',
+        '/api/hardware-id',
+        '/api/strategies',
+        '/api/currentUser',
+        '/api/users',
+        '/api/group',
+        '/api/device-group',
+        '/api/user-groups',
+        '/api/user/group',
+        '/api/peer-key',
+        '/api/software',
+        '/api/audit/',
+        '/api/oidc/'
     ];
     app.use((req, res, next) => {
         const p = req.path;
-        if (
-            p.startsWith('/api/audit/') ||
-            p.startsWith('/api/device-group') ||
-            p.startsWith('/api/user-groups') ||
-            p.startsWith('/api/oidc/') ||
-            RUSTDESK_CLIENT_API_PATHS.includes(p)
-        ) {
+        // Do not proxy web panel auth endpoints (/api/auth/*)
+        if (p.startsWith('/api/auth/')) {
+            return next();
+        }
+        if (GO_PROXY_PREFIXES.some(prefix => p.startsWith(prefix))) {
             return goApiProxy(req, res);
         }
         next();
@@ -243,13 +257,15 @@ app.use((req, res, next) => {
 app.use(csrfTokenProvider);
 app.use((req, res, next) => {
     const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
+    const GO_PROXY_PREFIXES = [
+        '/api/login', '/api/logout', '/api/sysinfo', '/api/heartbeat', '/api/peers',
+        '/api/server-key', '/api/ab', '/api/hardware-id', '/api/strategies', '/api/currentUser',
+        '/api/users', '/api/group', '/api/device-group', '/api/user-groups', '/api/user/group',
+        '/api/peer-key', '/api/software', '/api/audit/', '/api/oidc/'
+    ];
     const isDeviceOrClientApi = req.path.startsWith('/api/bd/') ||
-        req.path.startsWith('/api/audit/') ||
-        req.path.startsWith('/api/device-group') ||
-        req.path.startsWith('/api/user-groups') ||
-        req.path.startsWith('/api/oidc/') ||
         req.path.startsWith('/api/auth/oidc/') ||
-        ['/api/login', '/api/logout', '/api/heartbeat', '/api/sysinfo', '/api/peers', '/api/server-key', '/api/ab', '/api/ab/get', '/api/hardware-id', '/api/strategies', '/api/currentUser', '/api/login-options'].includes(req.path);
+        GO_PROXY_PREFIXES.some(prefix => req.path.startsWith(prefix));
 
     if (isBearer || isDeviceOrClientApi) {
         return next();
