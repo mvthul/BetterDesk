@@ -187,6 +187,8 @@ if (useGoProxy) {
             p.startsWith('/api/audit/') ||
             p.startsWith('/api/device-group') ||
             p.startsWith('/api/user-groups') ||
+            p.startsWith('/api/oidc/') ||
+            p.startsWith('/api/auth/oidc/') ||
             RUSTDESK_CLIENT_API_PATHS.includes(p)
         ) {
             return goApiProxy(req, res);
@@ -238,7 +240,7 @@ app.use((req, res, next) => {
 
 // CSRF protection — generate token for views, validate on POST/PUT/DELETE/PATCH.
 // Skip CSRF for device-facing API routes (/api/bd/*), RustDesk client API routes,
-// and requests authenticated via Bearer token (desktop/mobile/API clients).
+// OIDC auth endpoints, and requests authenticated via Bearer token (desktop/mobile/API clients).
 app.use(csrfTokenProvider);
 app.use((req, res, next) => {
     const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
@@ -246,6 +248,8 @@ app.use((req, res, next) => {
         req.path.startsWith('/api/audit/') ||
         req.path.startsWith('/api/device-group') ||
         req.path.startsWith('/api/user-groups') ||
+        req.path.startsWith('/api/oidc/') ||
+        req.path.startsWith('/api/auth/oidc/') ||
         ['/api/login', '/api/logout', '/api/heartbeat', '/api/sysinfo', '/api/peers', '/api/server-key', '/api/ab', '/api/ab/get', '/api/hardware-id', '/api/strategies', '/api/currentUser', '/api/login-options'].includes(req.path);
 
     if (isBearer || isDeviceOrClientApi) {
