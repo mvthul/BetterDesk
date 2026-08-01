@@ -173,6 +173,27 @@ app.use('/api/', apiLimiter);
 // RustDesk Client API — mounted BEFORE CSRF because desktop clients use Bearer
 // token auth, not cookie-based CSRF.  These routes are also served on the
 // dedicated WAN-facing port (21121) with additional hardening.
+const { goApiProxy } = require('./middleware/goApiProxy');
+const useGoProxy = config.apiProxyToGo && config.serverBackend === 'betterdesk';
+if (useGoProxy) {
+    const RUSTDESK_CLIENT_API_PATHS = [
+        '/api/login', '/api/logout', '/api/sysinfo', '/api/sysinfo_ver', '/api/heartbeat',
+        '/api/peers', '/api/server-key', '/api/ab', '/api/ab/get', '/api/ab/personal',
+        '/api/hardware-id', '/api/strategies', '/api/login-options', '/api/currentUser'
+    ];
+    app.use((req, res, next) => {
+        const p = req.path;
+        if (
+            p.startsWith('/api/audit/') ||
+            p.startsWith('/api/device-group') ||
+            p.startsWith('/api/user-groups') ||
+            RUSTDESK_CLIENT_API_PATHS.includes(p)
+        ) {
+            return goApiProxy(req, res);
+        }
+        next();
+    });
+}
 app.use(rustdeskApiRoutes);
 
 // BetterDesk Desktop Client API — device-facing endpoints that use

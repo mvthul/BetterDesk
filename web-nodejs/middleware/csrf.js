@@ -54,7 +54,14 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  * installation with a different secret), we clear it and regenerate so
  * the next page load works.
  */
+function syncCsrfSecurityFromReq(req) {
+    if (req && (req.secure || req.headers['x-forwarded-proto'] === 'https')) {
+        csrfCookieSecure = true;
+    }
+}
+
 function csrfTokenProvider(req, res, next) {
+    syncCsrfSecurityFromReq(req);
     // State-changing methods: let doubleCsrfProtection handle everything
     if (!SAFE_METHODS.has(req.method)) {
         return next();
@@ -93,6 +100,7 @@ function csrfTokenProvider(req, res, next) {
  * throw.  We catch that, wipe the cookie and let the request through.
  */
 function safeCsrfProtection(req, res, next) {
+    syncCsrfSecurityFromReq(req);
     doubleCsrfProtection(req, res, (err) => {
         if (err && SAFE_METHODS.has(req.method)) {
             // Corrupt cookie on a safe method — clear and continue.
