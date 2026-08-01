@@ -188,7 +188,6 @@ if (useGoProxy) {
             p.startsWith('/api/device-group') ||
             p.startsWith('/api/user-groups') ||
             p.startsWith('/api/oidc/') ||
-            p.startsWith('/api/auth/oidc/') ||
             RUSTDESK_CLIENT_API_PATHS.includes(p)
         ) {
             return goApiProxy(req, res);
