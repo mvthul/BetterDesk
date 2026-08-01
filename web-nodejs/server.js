@@ -202,7 +202,10 @@ if (useGoProxy) {
         if (p.startsWith('/api/auth/')) {
             return next();
         }
-        if (RUSTDESK_CLIENT_PREFIXES.some(prefix => p.startsWith(prefix))) {
+        const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
+        const isClientEndpoint = RUSTDESK_CLIENT_PREFIXES.some(prefix => p.startsWith(prefix));
+
+        if (isBearer || isClientEndpoint) {
             return goApiProxy(req, res);
         }
         next();
