@@ -216,18 +216,18 @@ app.use((req, res, next) => {
 });
 
 // CSRF protection — generate token for views, validate on POST/PUT/DELETE/PATCH.
-// Skip CSRF for device-facing API routes (/api/bd/*) — these MUST authenticate
-// via Bearer access token (session-cookie fallback is rejected in requireDeviceAuth).
-//
-// SECURITY (audit fix C-02, 2026-04-10): the previous Origin-based CSRF skip
-// for Tauri webview origins (`tauri://localhost`, `https://tauri.localhost`,
-// `http://localhost:1420`) was removed — `Origin` is freely forgeable by any
-// non-browser HTTP client, so it is unsafe as a CSRF-bypass signal. Tauri
-// desktop clients receive the CSRF token via `csrfTokenProvider` and must
-// echo it back in the `X-CSRF-Token` header (csrf-csrf double-submit).
+// Skip CSRF for device-facing API routes (/api/bd/*), RustDesk client API routes,
+// and requests authenticated via Bearer token (desktop/mobile/API clients).
 app.use(csrfTokenProvider);
 app.use((req, res, next) => {
-    if (req.path.startsWith('/api/bd/')) {
+    const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
+    const isDeviceOrClientApi = req.path.startsWith('/api/bd/') ||
+        req.path.startsWith('/api/audit/') ||
+        req.path.startsWith('/api/device-group') ||
+        req.path.startsWith('/api/user-groups') ||
+        ['/api/login', '/api/logout', '/api/heartbeat', '/api/sysinfo', '/api/peers', '/api/server-key', '/api/ab', '/api/ab/get', '/api/hardware-id', '/api/strategies', '/api/currentUser', '/api/login-options'].includes(req.path);
+
+    if (isBearer || isDeviceOrClientApi) {
         return next();
     }
     doubleCsrfProtection(req, res, next);
