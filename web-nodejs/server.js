@@ -176,26 +176,25 @@ app.use('/api/', apiLimiter);
 const { goApiProxy } = require('./middleware/goApiProxy');
 const useGoProxy = config.apiProxyToGo && config.serverBackend === 'betterdesk';
 if (useGoProxy) {
-    const GO_PROXY_PREFIXES = [
+    const RUSTDESK_CLIENT_PREFIXES = [
         '/api/login',
+        '/api/login-options',
+        '/api/oidc/auth',
+        '/api/oidc/auth-query',
         '/api/logout',
         '/api/sysinfo',
+        '/api/sysinfo_ver',
         '/api/heartbeat',
-        '/api/peers',
         '/api/server-key',
-        '/api/ab',
         '/api/hardware-id',
-        '/api/strategies',
         '/api/currentUser',
-        '/api/users',
+        '/api/ab',
+        '/api/peers',
         '/api/group',
-        '/api/device-group',
-        '/api/user-groups',
+        '/api/device-group/accessible',
         '/api/user/group',
         '/api/peer-key',
-        '/api/software',
-        '/api/audit/',
-        '/api/oidc/'
+        '/api/software'
     ];
     app.use((req, res, next) => {
         const p = req.path;
@@ -203,7 +202,7 @@ if (useGoProxy) {
         if (p.startsWith('/api/auth/')) {
             return next();
         }
-        if (GO_PROXY_PREFIXES.some(prefix => p.startsWith(prefix))) {
+        if (RUSTDESK_CLIENT_PREFIXES.some(prefix => p.startsWith(prefix))) {
             return goApiProxy(req, res);
         }
         next();
@@ -257,15 +256,15 @@ app.use((req, res, next) => {
 app.use(csrfTokenProvider);
 app.use((req, res, next) => {
     const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
-    const GO_PROXY_PREFIXES = [
-        '/api/login', '/api/logout', '/api/sysinfo', '/api/heartbeat', '/api/peers',
-        '/api/server-key', '/api/ab', '/api/hardware-id', '/api/strategies', '/api/currentUser',
-        '/api/users', '/api/group', '/api/device-group', '/api/user-groups', '/api/user/group',
-        '/api/peer-key', '/api/software', '/api/audit/', '/api/oidc/'
+    const RUSTDESK_CLIENT_PREFIXES = [
+        '/api/login', '/api/login-options', '/api/oidc/auth', '/api/oidc/auth-query',
+        '/api/logout', '/api/sysinfo', '/api/sysinfo_ver', '/api/heartbeat', '/api/server-key',
+        '/api/hardware-id', '/api/currentUser', '/api/ab', '/api/peers', '/api/group',
+        '/api/device-group/accessible', '/api/user/group', '/api/peer-key', '/api/software'
     ];
     const isDeviceOrClientApi = req.path.startsWith('/api/bd/') ||
         req.path.startsWith('/api/auth/oidc/') ||
-        GO_PROXY_PREFIXES.some(prefix => req.path.startsWith(prefix));
+        RUSTDESK_CLIENT_PREFIXES.some(prefix => req.path.startsWith(prefix));
 
     if (isBearer || isDeviceOrClientApi) {
         return next();
