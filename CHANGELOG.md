@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+<<<<<<< HEAD
 ### Fixed
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -14,6 +15,16 @@
   ID as stale history. Incoming sessions can reach the device immediately
   after the rename, with SQLite and PostgreSQL behavior kept consistent.
 >>>>>>> pr-282
+=======
+### Added
+
+- **Device connected-time reports** — persist server-observed presence intervals in SQLite or PostgreSQL, show the current connection duration on Devices, provide date and “Connected only” filters with per-PC/day totals, and export selected devices as a UTF-8 CSV. Presence reports measure device connectivity, not keyboard or mouse activity.
+
+### Fixed
+- **Device List widget popout:** load the complete widget stylesheet in
+  detached windows, retain a compact fallback layout, prioritize connected
+  devices and show their current server-observed duration.
+>>>>>>> pr-283
 
 ### Changed
 - _(none yet)_
