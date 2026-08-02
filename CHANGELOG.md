@@ -2,10 +2,18 @@
 
 ### Fixed
 <<<<<<< HEAD
+<<<<<<< HEAD
 - **Browser Remote Desktop over relay WSS:** send raw RustDesk protobuf
   payloads as native WebSocket messages and translate framing only in the
   optional Node TCP bridge, including mixed browser-WebSocket/desktop-TCP
   sessions.
+=======
+- **Peer ID changes while connected (#213):** renaming a registered device now
+  preserves its live TCP/WSS transport, follows the renamed WSS identity for
+  heartbeats, and permits safe round-trip renames without treating the current
+  ID as stale history. Incoming sessions can reach the device immediately
+  after the rename, with SQLite and PostgreSQL behavior kept consistent.
+>>>>>>> pr-282
 
 ### Changed
 - _(none yet)_
