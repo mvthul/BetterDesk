@@ -247,6 +247,23 @@ func TestProcessRegisterPkManagedAllowsExistingPeer(t *testing.T) {
 	}
 }
 
+func TestProcessRegisterPkPopulatesPeerIP(t *testing.T) {
+	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+	if err := database.UpsertPeer(&db.Peer{ID: "PKIP10", Status: "OFFLINE"}); err != nil {
+		t.Fatalf("UpsertPeer: %v", err)
+	}
+
+	resp := srv.processRegisterPk(newRegisterPk("PKIP10"), "109.38.228.247:6432")
+	if got := registerPkResult(resp); got != pb.RegisterPkResponse_OK {
+		t.Fatalf("RegisterPk result = %v, want %v", got, pb.RegisterPkResponse_OK)
+	}
+
+	found := srv.PeerMap().FindByIP(net.ParseIP("109.38.228.247"))
+	if found == nil || found.ID != "PKIP10" {
+		t.Fatalf("FindByIP after RegisterPk = %+v, want PKIP10", found)
+	}
+}
+
 func TestProcessIDChangeSoftDeletedTargetReturnsIDExists(t *testing.T) {
 	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
 

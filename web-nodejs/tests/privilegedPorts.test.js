@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+
 const {
     isPrivilegedPort,
     resolvePortForCurrentUser,
@@ -89,15 +91,24 @@ describe('privilegedPorts', () => {
 
     test('resolvePortForCurrentUser falls back for privileged ports when not root and no bind capability', () => {
         const originalGetuid = process.getuid;
+        const originalGeteuid = process.geteuid;
         const originalEnv = process.env[BIND_SERVICE_ENV];
+        const originalReadFileSync = fs.readFileSync;
         process.getuid = () => 1000;
+        if (typeof process.geteuid === 'function') process.geteuid = () => 1000;
         delete process.env[BIND_SERVICE_ENV];
+        fs.readFileSync = (p, encoding) => {
+            if (p === '/proc/self/status') return 'CapEff: 0000000000000000\n';
+            return originalReadFileSync(p, encoding);
+        };
         try {
             expect(resolvePortForCurrentUser(443, 5443, 'HTTPS')).toBe(5443);
             expect(resolvePortForCurrentUser(80, 5000, 'HTTP')).toBe(5000);
             expect(resolvePortForCurrentUser(5443, 5000, 'HTTPS')).toBe(5443);
         } finally {
+            fs.readFileSync = originalReadFileSync;
             process.getuid = originalGetuid;
+            if (typeof process.geteuid === 'function') process.geteuid = originalGeteuid;
             if (originalEnv === undefined) {
                 delete process.env[BIND_SERVICE_ENV];
             } else {
@@ -108,8 +119,10 @@ describe('privilegedPorts', () => {
 
     test('resolvePortForCurrentUser keeps privileged port when BETTERDESK_HAS_BIND_SERVICE is set (#219)', () => {
         const originalGetuid = process.getuid;
+        const originalGeteuid = process.geteuid;
         const originalEnv = process.env[BIND_SERVICE_ENV];
         process.getuid = () => 1000;
+        if (typeof process.geteuid === 'function') process.geteuid = () => 1000;
         process.env[BIND_SERVICE_ENV] = '1';
         try {
             expect(resolvePortForCurrentUser(443, 5443, 'HTTPS')).toBe(443);
@@ -118,6 +131,7 @@ describe('privilegedPorts', () => {
             expect(processHasBindServiceCapability()).toBe(true);
         } finally {
             process.getuid = originalGetuid;
+            if (typeof process.geteuid === 'function') process.geteuid = originalGeteuid;
             if (originalEnv === undefined) {
                 delete process.env[BIND_SERVICE_ENV];
             } else {
