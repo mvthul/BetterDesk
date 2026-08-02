@@ -51,6 +51,12 @@ function goApiProxy(req, res) {
     const port = target.port || (isTls ? 443 : 80);
     const transport = isTls ? https : http;
 
+    let payload = null;
+    if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+        payload = Buffer.isBuffer(req.body) ? req.body : JSON.stringify(req.body);
+        headers['content-length'] = Buffer.byteLength(payload);
+    }
+
     const opts = {
         hostname: target.hostname,
         port,
@@ -82,7 +88,12 @@ function goApiProxy(req, res) {
         }
     });
 
-    req.pipe(proxyReq);
+    if (payload !== null) {
+        proxyReq.write(payload);
+        proxyReq.end();
+    } else {
+        req.pipe(proxyReq);
+    }
 }
 
 module.exports = { goApiProxy, getGoApiOrigin };

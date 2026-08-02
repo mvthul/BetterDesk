@@ -173,6 +173,44 @@ app.use('/api/', apiLimiter);
 // RustDesk Client API — mounted BEFORE CSRF because desktop clients use Bearer
 // token auth, not cookie-based CSRF.  These routes are also served on the
 // dedicated WAN-facing port (21121) with additional hardening.
+const { goApiProxy } = require('./middleware/goApiProxy');
+const useGoProxy = config.apiProxyToGo && config.serverBackend === 'betterdesk';
+if (useGoProxy) {
+    const RUSTDESK_CLIENT_PREFIXES = [
+        '/api/login',
+        '/api/login-options',
+        '/api/oidc/auth',
+        '/api/oidc/auth-query',
+        '/api/logout',
+        '/api/sysinfo',
+        '/api/sysinfo_ver',
+        '/api/heartbeat',
+        '/api/server-key',
+        '/api/hardware-id',
+        '/api/currentUser',
+        '/api/ab',
+        '/api/peers',
+        '/api/group',
+        '/api/device-group/accessible',
+        '/api/user/group',
+        '/api/peer-key',
+        '/api/software'
+    ];
+    app.use((req, res, next) => {
+        const p = req.path;
+        // Do not proxy web panel auth endpoints (/api/auth/*)
+        if (p.startsWith('/api/auth/')) {
+            return next();
+        }
+        const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
+        const isClientEndpoint = RUSTDESK_CLIENT_PREFIXES.some(prefix => p.startsWith(prefix));
+
+        if (isBearer || isClientEndpoint) {
+            return goApiProxy(req, res);
+        }
+        next();
+    });
+}
 app.use(rustdeskApiRoutes);
 
 // BetterDesk Desktop Client API — device-facing endpoints that use
@@ -216,18 +254,22 @@ app.use((req, res, next) => {
 });
 
 // CSRF protection — generate token for views, validate on POST/PUT/DELETE/PATCH.
-// Skip CSRF for device-facing API routes (/api/bd/*) — these MUST authenticate
-// via Bearer access token (session-cookie fallback is rejected in requireDeviceAuth).
-//
-// SECURITY (audit fix C-02, 2026-04-10): the previous Origin-based CSRF skip
-// for Tauri webview origins (`tauri://localhost`, `https://tauri.localhost`,
-// `http://localhost:1420`) was removed — `Origin` is freely forgeable by any
-// non-browser HTTP client, so it is unsafe as a CSRF-bypass signal. Tauri
-// desktop clients receive the CSRF token via `csrfTokenProvider` and must
-// echo it back in the `X-CSRF-Token` header (csrf-csrf double-submit).
+// Skip CSRF for device-facing API routes (/api/bd/*), RustDesk client API routes,
+// OIDC auth endpoints, and requests authenticated via Bearer token (desktop/mobile/API clients).
 app.use(csrfTokenProvider);
 app.use((req, res, next) => {
-    if (req.path.startsWith('/api/bd/')) {
+    const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
+    const RUSTDESK_CLIENT_PREFIXES = [
+        '/api/login', '/api/login-options', '/api/oidc/auth', '/api/oidc/auth-query',
+        '/api/logout', '/api/sysinfo', '/api/sysinfo_ver', '/api/heartbeat', '/api/server-key',
+        '/api/hardware-id', '/api/currentUser', '/api/ab', '/api/peers', '/api/group',
+        '/api/device-group/accessible', '/api/user/group', '/api/peer-key', '/api/software'
+    ];
+    const isDeviceOrClientApi = req.path.startsWith('/api/bd/') ||
+        req.path.startsWith('/api/auth/oidc/') ||
+        RUSTDESK_CLIENT_PREFIXES.some(prefix => req.path.startsWith(prefix));
+
+    if (isBearer || isDeviceOrClientApi) {
         return next();
     }
     doubleCsrfProtection(req, res, next);
