@@ -98,6 +98,7 @@ describe('RDClient raw relay messages', () => {
         expect(client._handleRelayMessage).toHaveBeenCalledTimes(1);
         expect(Array.from(client._handleRelayMessage.mock.calls[0][0])).toEqual(Array.from(raw));
     });
+
     it('accepts PeerInfo with the legacy 3.3.2 input implementation', () => {
         const RDClient = loadBrowserScript('public/js/rdclient/client.js').RDClient;
         const client = Object.create(RDClient.prototype);

@@ -5,6 +5,7 @@
 - **Device connected-time reports** — persist server-observed presence intervals in SQLite or PostgreSQL, show the current connection duration on Devices, provide date and “Connected only” filters with per-PC/day totals, and export selected devices as a UTF-8 CSV. Presence reports measure device connectivity, not keyboard or mouse activity.
 
 ### Fixed
+- **Browser file transfer on legacy viewer layouts:** lazy-load the dedicated file relay and compression runtime, wait for the file-transfer session before browsing, and report connection failures through the UI.
 - **Browser Remote Desktop over relay WSS:** send raw RustDesk protobuf payloads as native WebSocket messages and translate framing only in the optional Node TCP bridge, including mixed browser-WebSocket/desktop-TCP sessions.
 - **Peer ID changes while connected (#213):** renaming a registered device now preserves its live TCP/WSS transport, follows the renamed WSS identity for heartbeats, and permits safe round-trip renames without treating the current ID as stale history. Incoming sessions can reach the device immediately after the rename, with SQLite and PostgreSQL behavior kept consistent.
 - **Device List widget popout:** load the complete widget stylesheet in detached windows, retain a compact fallback layout, prioritize connected devices and show their current server-observed duration.
