@@ -201,16 +201,20 @@ class GithubProvisionService {
                 fs.writeFileSync(envFile, '# Auto-provisioned by BetterDesk\n');
             }
             
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_TOKEN', pat);
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_OWNER', owner);
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_REPO', repo);
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_REF', 'main');
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_API_URL', 'https://api.github.com');
-            await upsertEnvKey(envFile, 'REAL_CLIENT_PAYLOAD_PUBLIC_KEY', rsaPublicKeyBase64);
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_WORKFLOW_COMMIT', workflowCommit);
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_WORKFLOWS', '{"linux":"real-client-build.yml","windows":"real-client-build.yml"}');
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_MATRIX', '{"linux-x64-deb":["1.4.9"], "windows-x64-exe":["1.4.9"]}');
-            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_REVISIONS', '{"1.4.9":"6c578292e8ebbbec708b76986ba8c4bc7c509747"}');
+            let envContent = fs.readFileSync(envFile, 'utf8');
+            
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_TOKEN', pat);
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_OWNER', owner);
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_REPO', repo);
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_REF', 'main');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_API_URL', 'https://api.github.com');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_PAYLOAD_PUBLIC_KEY', rsaPublicKeyBase64);
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_WORKFLOW_COMMIT', workflowCommit);
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_WORKFLOWS', '{"linux":"real-client-build.yml","windows":"real-client-build.yml"}');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_MATRIX', '{"linux-x64-deb":["1.4.9"], "windows-x64-exe":["1.4.9"]}');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_REVISIONS', '{"1.4.9":"6c578292e8ebbbec708b76986ba8c4bc7c509747"}');
+            
+            fs.writeFileSync(envFile, envContent);
             
         } catch (err) {
             throw new Error(`Failed to update local .env file: ${err.message}`);
