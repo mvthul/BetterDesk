@@ -31,6 +31,7 @@ const refuseInitiatorNotAuthorized = "Not authorized"
 // panelWebRemoteInitiatorID is the synthetic initiator id logged when PunchHole/
 // RequestRelay arrives from the Node panel WebSocket→TCP proxy (#302 Web Remote).
 const panelWebRemoteInitiatorID = "panel-web-remote"
+
 // handleUDPMessage dispatches a UDP message to the appropriate handler.
 func (s *Server) handleUDPMessage(msg *pb.RendezvousMessage, raddr *net.UDPAddr) {
 	switch {
