@@ -916,7 +916,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3609,7 +3616,7 @@
         "channel_apply_hint": "確認後すぐに保存されます。その後「更新を確認」をクリック。",
         "channel_confirm_switch": "更新元を {from} から {to} に切り替えますか？「更新を確認」まで現在の commit はそのままです。",
         "docker_title": "Docker イメージのデプロイ",
-        "docker_desc": "このコンソールは事前ビルド済みコンテナイメージ（公式 all-in-one またはレガシー split）から動作します。更新はホスト上で GHCR から新しいコンテナイメージを pull して適用し、アプリ内インストールや Go 再ビルドでは行いません。",
+        "docker_desc": "このコンソールは事前ビルド済みコンテナイメージから動作します。更新は GHCR から新しいイメージを pull して適用し、アプリ内インストールや Go 再ビルドでは行いません。",
         "docker_install_note": "Docker ではアプリ内インストールは無効です。上記コマンドをホストで実行し、このページを更新してください。",
         "docker_update_available": "新しいコンテナイメージが利用可能",
         "docker_sha_unknown": "最新（イメージ commit 不明）",

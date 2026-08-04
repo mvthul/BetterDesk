@@ -916,7 +916,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Automatisch via GitHub instellen",
+        "auto_provision_title": "GitHub build-repository automatisch instellen",
+        "auto_provision_desc": "Dit maakt automatisch een privé GitHub-repository aan, voegt de RustDesk build-workflows toe, genereert encryptiesleutels, uploadt secrets en configureert BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Vereist repo- en workflow-machtigingen. Een fine-grained PAT wordt aanbevolen.",
+        "auto_provision_repo_label": "Repositorynaam",
+        "auto_provision_start": "Start instellen"
     },
     "server": {
         "port": "Poort",
@@ -3609,9 +3616,9 @@
         "channel_apply_hint": "Wordt direct opgeslagen na bevestiging. Klik daarna op Controleren op updates.",
         "channel_confirm_switch": "Bron wijzigen van {from} naar {to}? Geïnstalleerde commit blijft tot Controleren op updates.",
         "docker_title": "Docker-image-implementatie",
-        "docker_desc": "Deze console draait vanuit een voorgebouwd containerimage (officieel all-in-one of legacy split). Updates worden op de host toegepast door nieuwere containerimage(s) van GHCR te pullen, niet via in-app-installatie of Go-herbouw.",
+        "docker_desc": "Deze console draait vanuit een voorgebouwd containerimage. Updates worden toegepast door nieuwere images van GHCR te pullen, niet via in-app-installatie of Go-herbouw.",
         "docker_install_note": "In-app-installatie is uitgeschakeld in Docker. Voer de bovenstaande commando's uit op de host en vernieuw daarna deze pagina.",
-        "docker_update_available": "Nieuw(e) containerimage(s) beschikbaar",
+        "docker_update_available": "Nieuwe containerimages beschikbaar",
         "docker_sha_unknown": "Up-to-date (image-commit onbekend)",
         "docker_images": "Images",
         "more_options": "Meer opties",

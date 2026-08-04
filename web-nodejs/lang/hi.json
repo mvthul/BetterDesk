@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,7 +3622,7 @@
         "channel_apply_hint": "पुष्टि के तुरंत बाद परिवर्तन सहेजा जाता है। फिर «अपडेट जाँचें» पर क्लिक करें।",
         "channel_confirm_switch": "अपडेट स्रोत {from} से {to} पर बदलें? «अपडेट जाँचें» चलाने तक इंस्टॉल commit वही रहेगा।",
         "docker_title": "Docker इमेज परिनियोजन",
-        "docker_desc": "यह कंसोल पूर्व-निर्मित कंटेनर इमेज से चलता है (आधिकारिक all-in-one या legacy split)। अपडेट होस्ट पर GHCR से नई कंटेनर इमेज खींचकर लागू होते हैं, इन-ऐप इंस्टॉल या Go रीबिल्ड से नहीं।",
+        "docker_desc": "यह कंसोल पूर्व-निर्मित कंटेनर इमेज से चलता है। अपडेट GHCR से नई इमेज खींचकर लागू होते हैं, इन-ऐप इंस्टॉल या Go रीबिल्ड से नहीं।",
         "docker_install_note": "Docker में इन-ऐप इंस्टॉल अक्षम है। होस्ट पर ऊपर दिए कमांड चलाएँ, फिर यह पृष्ठ रीफ़्रेश करें।",
         "docker_update_available": "नई कंटेनर इमेज उपलब्ध",
         "docker_sha_unknown": "अद्यतन (इमेज commit अज्ञात)",

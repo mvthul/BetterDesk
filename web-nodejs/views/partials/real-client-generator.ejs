@@ -6,9 +6,14 @@
                 <h2 id="rc-title"><span class="material-icons">desktop_windows</span> RustDesk Client Generator</h2>
                 <p>Configure once, then build Full Client and QuickSupport packages for every verified platform.</p>
             </div>
-            <button type="button" class="btn btn-ghost btn-sm" data-rc-close aria-label="Close">
-                <span class="material-icons">close</span>
-            </button>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('github-provision-modal').classList.remove('hidden')" style="display:inline-flex; align-items:center; gap:6px;">
+                    <span class="material-icons" style="font-size:1.1em;">auto_awesome</span> Auto-Provision GitHub
+                </button>
+                <button type="button" class="btn btn-ghost btn-sm" data-rc-close aria-label="Close">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
         </header>
 
         <div id="rc-provider-state" class="rc-provider-state" role="status"></div>

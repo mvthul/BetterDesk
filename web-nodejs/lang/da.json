@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,9 +3622,9 @@
         "channel_apply_hint": "Gemmes straks efter bekræftelse. Klik derefter Tjek for opdateringer.",
         "channel_confirm_switch": "Skift kilde fra {from} til {to}? Installeret commit beholdes indtil tjek for opdateringer.",
         "docker_title": "Docker-image-udrulning",
-        "docker_desc": "Denne konsol kører fra et færdigbygget containerimage (officielt all-in-one eller legacy split). Opdateringer anvendes på værten ved at hente nyere containerimage(s) fra GHCR, ikke via in-app-installation eller Go-genopbygning.",
+        "docker_desc": "Denne konsol kører fra et færdigbygget containerimage. Opdateringer anvendes ved at hente nyere images fra GHCR, ikke via in-app-installation eller Go-genopbygning.",
         "docker_install_note": "In-app-installation er deaktiveret i Docker. Kør kommandoerne ovenfor på værten, og opdater derefter denne side.",
-        "docker_update_available": "Nyt containerimage / nye containerimages tilgængelige",
+        "docker_update_available": "Nye containerimages tilgængelige",
         "docker_sha_unknown": "Opdateret (image-commit ukendt)",
         "docker_images": "Images",
         "more_options": "Flere indstillinger",

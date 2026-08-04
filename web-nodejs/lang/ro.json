@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,9 +3622,9 @@
         "channel_apply_hint": "Se salvează după confirmare. Apoi apăsați Verifică actualizări.",
         "channel_confirm_switch": "Comutați sursa de la {from} la {to}? Commitul instalat rămâne până la verificarea actualizărilor.",
         "docker_title": "Implementare imagini Docker",
-        "docker_desc": "Această consolă rulează dintr-o imagine de container preconstruită (all-in-one oficial sau split legacy). Actualizările se aplică pe gazdă prin descărcarea de imagini mai noi de la GHCR, nu prin instalare în aplicație sau recompilare Go.",
+        "docker_desc": "Această consolă rulează dintr-o imagine de container preconstruită. Actualizările se aplică prin descărcarea de imagini mai noi de la GHCR, nu prin instalare în aplicație sau recompilare Go.",
         "docker_install_note": "Instalarea din aplicație este dezactivată în Docker. Rulați comenzile de mai sus pe gazdă, apoi reîmprospătați pagina.",
-        "docker_update_available": "Imagine(e) container nouă(e) disponibilă(e)",
+        "docker_update_available": "Imagini container noi disponibile",
         "docker_sha_unknown": "Actualizat (commit imagine necunoscut)",
         "docker_images": "Imagini",
         "more_options": "Mai multe opțiuni",

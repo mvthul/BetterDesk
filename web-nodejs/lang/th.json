@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,7 +3622,7 @@
         "channel_apply_hint": "การเปลี่ยนแปลงจะบันทึกทันทีหลังยืนยัน จากนั้นคลิกตรวจสอบอัปเดต",
         "channel_confirm_switch": "สลับแหล่งอัปเดตจาก {from} เป็น {to}? commit ที่ติดตั้งยังคงเดิมจนกว่าจะตรวจสอบอัปเดต",
         "docker_title": "การ deploy อิมเมจ Docker",
-        "docker_desc": "คอนโซลนี้ทำงานจากอิมเมจคอนเทนเนอร์ที่สร้างไว้ล่วงหน้า (all-in-one อย่างเป็นทางการหรือ split แบบเดิม) อัปเดตบนโฮสต์โดยดึงอิมเมจใหม่จาก GHCR ไม่ใช่ติดตั้งในแอปหรือ build Go ใหม่",
+        "docker_desc": "คอนโซลนี้ทำงานจากอิมเมจคอนเทนเนอร์ที่สร้างไว้ล่วงหน้า อัปเดตโดยดึงอิมเมจใหม่จาก GHCR ไม่ใช่ติดตั้งในแอปหรือ build Go ใหม่",
         "docker_install_note": "การติดตั้งในแอปถูกปิดใช้งานใน Docker รันคำสั่งด้านบนบนโฮสต์ แล้วรีเฟรชหน้านี้",
         "docker_update_available": "มีอิมเมจคอนเทนเนอร์ใหม่",
         "docker_sha_unknown": "ล่าสุด (commit อิมเมจไม่ทราบ)",

@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,9 +3622,9 @@
         "channel_apply_hint": "Lagres etter bekreftelse. Klikk deretter Se etter oppdateringer.",
         "channel_confirm_switch": "Bytt kilde fra {from} til {to}? Installert commit beholdes til oppdateringssjekk.",
         "docker_title": "Docker-image-utrulling",
-        "docker_desc": "Denne konsollen kjører fra et ferdigbygd containerbilde (offisielt all-in-one eller legacy split). Oppdateringer brukes på verten ved å hente nyere containerbilde(r) fra GHCR, ikke via in-app-installasjon eller Go-ombygging.",
+        "docker_desc": "Denne konsollen kjører fra et ferdigbygd containerbilde. Oppdateringer brukes ved å hente nyere bilder fra GHCR, ikke via in-app-installasjon eller Go-ombygging.",
         "docker_install_note": "In-app-installasjon er deaktivert i Docker. Kjør kommandoene over på verten, og oppdater deretter denne siden.",
-        "docker_update_available": "Nytt containerbilde / nye bilder tilgjengelig",
+        "docker_update_available": "Nye containerbilder tilgjengelig",
         "docker_sha_unknown": "Oppdatert (image-commit ukjent)",
         "docker_images": "Bilder",
         "more_options": "Flere alternativer",

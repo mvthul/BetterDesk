@@ -916,7 +916,14 @@
         "toolchain_cgo": "Do budowania Windows Fyne wymagany jest CGO / mingw.",
         "toolchain_msi_missing": "Nie znaleziono buildera MSI (wixl) — instalatory Windows nie zostaną zbudowane.",
         "toolchain_go_missing": "Go jest niedostępne — budowanie Support Agent nie jest możliwe.",
-        "rebuild_pending_banner": "Oczekuje przebudowa generatora po ostatniej aktualizacji ({{reason}})."
+        "rebuild_pending_banner": "Oczekuje przebudowa generatora po ostatniej aktualizacji ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "download": {
         "title": "Pobierz Agenta BetterDesk",

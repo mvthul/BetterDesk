@@ -916,7 +916,14 @@
         "toolchain_cgo": "CGO / mingw-Cross-Compiler für Windows-Fyne-Builds erforderlich.",
         "toolchain_msi_missing": "MSI-Builder (wixl) nicht gefunden — Windows-Installer-Builds schlagen fehl.",
         "toolchain_go_missing": "Go ist nicht verfügbar — Support-Agent-Builds können nicht ausgeführt werden.",
-        "rebuild_pending_banner": "Ein Generator-Rebuild aus dem letzten Update steht aus ({{reason}})."
+        "rebuild_pending_banner": "Ein Generator-Rebuild aus dem letzten Update steht aus ({{reason}}).",
+        "auto_provision_button": "GitHub automatisch einrichten",
+        "auto_provision_title": "GitHub-Build-Repository automatisch einrichten",
+        "auto_provision_desc": "Erstellt automatisch ein privates GitHub-Repository, fügt RustDesk-Build-Workflows hinzu, generiert Verschlüsselungsschlüssel, lädt Secrets hoch und konfiguriert BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Benötigt Repo- und Workflow-Berechtigungen. Ein feingranulares PAT wird empfohlen.",
+        "auto_provision_repo_label": "Repository-Name",
+        "auto_provision_start": "Einrichtung starten"
     },
     "server": {
         "port": "Port",
@@ -3609,9 +3616,9 @@
         "channel_apply_hint": "Nach Bestätigung wird sofort gespeichert. Dann „Auf Updates prüfen“ klicken.",
         "channel_confirm_switch": "Update-Quelle von {from} auf {to} wechseln? Installierter Commit bleibt bis „Auf Updates prüfen“.",
         "docker_title": "Docker-Image-Bereitstellung",
-        "docker_desc": "Diese Konsole läuft aus einem vorgefertigten Container-Image (offizielles All-in-One oder Legacy-Split). Updates werden auf dem Host durch Pull neuerer Container-Image(s) von GHCR angewendet, nicht über In-App-Installation oder Go-Neubau.",
+        "docker_desc": "Diese Konsole läuft aus einem vorgefertigten Container-Image. Updates erfolgen durch Pull neuerer Images von GHCR, nicht über In-App-Installation oder Go-Neubau.",
         "docker_install_note": "In-App-Installation ist in Docker deaktiviert. Führen Sie die obigen Befehle auf dem Host aus und aktualisieren Sie dann diese Seite.",
-        "docker_update_available": "Neue Container-Image(s) verfügbar",
+        "docker_update_available": "Neue Container-Images verfügbar",
         "docker_sha_unknown": "Aktuell (Image-Commit unbekannt)",
         "docker_images": "Images",
         "more_options": "Weitere Optionen",

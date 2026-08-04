@@ -923,7 +923,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3616,9 +3623,9 @@
         "channel_apply_hint": "يُحفظ التغيير فور التأكيد. ثم انقر «التحقق من التحديثات».",
         "channel_confirm_switch": "تبديل مصدر التحديث من {from} إلى {to}؟ يبقى commit المثبّت كما هو حتى تُشغّل «التحقق من التحديثات».",
         "docker_title": "نشر صور Docker",
-        "docker_desc": "تعمل هذه اللوحة من صورة حاوية مُسبقة البناء (all-in-one الرسمي أو split القديم). تُطبَّق التحديثات على المضيف بسحب صورة/صور حاوية أحدث من GHCR، وليس عبر التثبيت داخل التطبيق أو إعادة بناء Go.",
+        "docker_desc": "تعمل هذه اللوحة من صورة حاوية مُسبقة البناء. تُطبَّق التحديثات بسحب صور أحدث من GHCR، وليس عبر التثبيت داخل التطبيق أو إعادة بناء Go.",
         "docker_install_note": "التثبيت داخل التطبيق معطّل في Docker. نفّذ الأوامر أعلاه على المضيف ثم حدّث هذه الصفحة.",
-        "docker_update_available": "صورة/صور حاوية جديدة متاحة",
+        "docker_update_available": "صور حاويات جديدة متاحة",
         "docker_sha_unknown": "محدّث (commit الصورة غير معروف)",
         "docker_images": "الصور",
         "more_options": "المزيد من الخيارات",

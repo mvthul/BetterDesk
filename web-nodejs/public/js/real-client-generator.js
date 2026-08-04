@@ -87,7 +87,8 @@
         if (!enabled.length) {
             const reason = data.providers.map((provider) => provider.reason).filter(Boolean).join(' ');
             box.className = 'rc-provider-state is-error';
-            box.textContent = `Build provider is not ready. ${reason || 'Configure a verified provider on the server.'}`;
+            box.innerHTML = `<span>Build provider is not ready. ${escapeText(reason || 'Configure a verified provider on the server.')}</span> `
+                + `<button type="button" class="btn btn-primary btn-xs" onclick="document.getElementById('github-provision-modal').classList.remove('hidden')" style="margin-left: 10px; display: inline-flex; align-items: center; gap: 4px;"><span class="material-icons" style="font-size: 1.1em;">auto_awesome</span> Auto-Provision GitHub</button>`;
         } else {
             box.className = 'rc-provider-state';
             box.textContent = `${enabled.map((provider) => provider.label).join(', ')} ready · ${data.targets.filter((target) => target.enabled).length} verified target(s) · ${(data.versions || []).length} verified version(s)`;

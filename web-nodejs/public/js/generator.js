@@ -827,3 +827,58 @@
         init();
     }
 })();
+
+// GitHub Auto-Provisioning
+document.addEventListener('DOMContentLoaded', () => {
+    const btnSubmit = document.getElementById('btn-submit-github-provision');
+    const statusDiv = document.getElementById('github-provision-status');
+    const statusText = document.getElementById('github-provision-status-text');
+    
+    if (btnSubmit) {
+        btnSubmit.addEventListener('click', async () => {
+            const pat = document.getElementById('github-pat-input').value.trim();
+            const repoName = document.getElementById('github-repo-name').value.trim();
+            
+            if (!pat) return alert('Please provide a GitHub PAT');
+            if (!repoName) return alert('Please provide a repository name');
+            
+            btnSubmit.disabled = true;
+            statusDiv.style.display = 'block';
+            statusText.innerText = 'Provisioning... this may take a minute or two.';
+            
+            try {
+                const response = await fetch('/api/panel/generator/real-client/provision-github', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': (window.BetterDesk && window.BetterDesk.csrfToken) || ''
+                    },
+                    body: JSON.stringify({ pat, repoName })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusText.innerText = 'Success! Please restart the BetterDesk service to apply the environment changes.';
+                    statusDiv.style.color = '#1b5e20';
+                    statusDiv.style.background = '#e8f5e9';
+                    statusDiv.querySelector('.material-icons').innerText = 'check_circle';
+                    statusDiv.querySelector('.material-icons').style.animation = 'none';
+                    
+                    setTimeout(() => {
+                        document.getElementById('github-provision-modal').classList.add('hidden');
+                    }, 5000);
+                } else {
+                    throw new Error(data.error || 'Failed to provision repository');
+                }
+            } catch (err) {
+                statusText.innerText = 'Error: ' + err.message;
+                statusDiv.style.color = '#b71c1c';
+                statusDiv.style.background = '#ffebee';
+                statusDiv.querySelector('.material-icons').innerText = 'error';
+                statusDiv.querySelector('.material-icons').style.animation = 'none';
+                btnSubmit.disabled = false;
+            }
+        });
+    }
+});

@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,9 +3622,9 @@
         "channel_apply_hint": "Megerősítés után azonnal mentés. Ezután kattintson a Frissítések ellenőrzése gombra.",
         "channel_confirm_switch": "Frissítési forrás váltása {from} → {to}? A telepített commit a frissítés-ellenőrzésig változatlan.",
         "docker_title": "Docker image telepítés",
-        "docker_desc": "Ez a konzol előre elkészített konténer image-ből fut (hivatalos all-in-one vagy legacy split). A frissítések a gazdagépen történnek újabb image(ek) GHCR-ből történő letöltésével, nem alkalmazáson belüli telepítéssel vagy Go újrafordítással.",
+        "docker_desc": "Ez a konzol előre elkészített konténer image-ből fut. A frissítések GHCR-ből történő újabb image-ek letöltésével történnek, nem alkalmazáson belüli telepítéssel vagy Go újrafordítással.",
         "docker_install_note": "Az alkalmazáson belüli telepítés Dockerben le van tiltva. Futtassa a fenti parancsokat a gazdagépen, majd frissítse az oldalt.",
-        "docker_update_available": "Új konténer image(ek) érhetők el",
+        "docker_update_available": "Új konténer image-ek érhetők el",
         "docker_sha_unknown": "Naprakész (image commit ismeretlen)",
         "docker_images": "Image-ek",
         "more_options": "További beállítások",

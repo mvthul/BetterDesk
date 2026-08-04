@@ -57,21 +57,26 @@ class GithubProvisionService {
         }
 
         const owner = repoData.owner.login;
-        const repo = repoData.name;
-        const cloneUrl = `https://${user.login}:${pat}@github.com/${owner}/${repo}.git`;
+        const repo = repoData.name;        // 5. Clone and inject BetterDesk workflows
+        const cloneUrl = `https://${owner}:${pat}@github.com/${owner}/${repo}.git`;
         const tmpDir = path.join(require('os').tmpdir(), `bd-provision-${Date.now()}`);
-
-        // 3. Initialize repository with central adapter
+        
         try {
+            console.log(`[Auto-Provision] Cloning repository ${cloneUrl.replace(pat, '***')} into ${tmpDir}...`);
             await execAsync(`git clone ${cloneUrl} ${tmpDir}`);
             
             // If repo is totally empty, fetch the RustDesk source code
             const isBare = fs.readdirSync(tmpDir).length <= 1; // only .git
             if (isBare) {
+                console.log(`[Auto-Provision] Repository is bare. Fetching rustdesk/rustdesk master branch...`);
                 await execAsync(`git remote add rustdesk https://github.com/rustdesk/rustdesk.git`, { cwd: tmpDir });
                 await execAsync(`git fetch rustdesk master`, { cwd: tmpDir });
                 await execAsync(`git checkout -b main FETCH_HEAD`, { cwd: tmpDir });
             }
+
+            console.log(`[Auto-Provision] Initializing submodules...`);
+            // Initialize submodules so the adapter script sees them as populated
+            await execAsync(`git submodule update --init`, { cwd: tmpDir });
 
             let installScript = path.resolve(__dirname, '../scripts/real-client-build-repository/install-central-adapter.mjs');
             if (!fs.existsSync(installScript)) {
@@ -80,8 +85,10 @@ class GithubProvisionService {
             if (!fs.existsSync(installScript)) {
                 throw new Error(`Adapter installer script not found at ${installScript}`);
             }
+            console.log(`[Auto-Provision] Running central adapter installer script...`);
             await execAsync(`node ${installScript} ${tmpDir} --install --init-vendors`);
             
+            console.log(`[Auto-Provision] Committing changes...`);
             await execAsync(`git config user.name "BetterDesk Auto-Provision"`, { cwd: tmpDir });
             await execAsync(`git config user.email "bot@betterdesk.local"`, { cwd: tmpDir });
             await execAsync(`git add .betterdesk .github .gitmodules`, { cwd: tmpDir });
@@ -89,8 +96,13 @@ class GithubProvisionService {
             // It might throw if there's nothing to commit (already installed)
             try {
                 await execAsync(`git commit -m "Install BetterDesk RustDesk client adapter"`, { cwd: tmpDir });
-            } catch (e) { /* ignore if already installed */ }
+            } catch (e) {
+                // Ignore empty commit errors
+            }
             
+            console.log(`[Auto-Provision] Pushing to origin main...`);
+            await execAsync(`git push -u origin main`, { cwd: tmpDir });
+            console.log(`[Auto-Provision] Push completed.`);
             await execAsync(`node ${installScript} ${tmpDir} --check`);
             await execAsync(`git push -u origin HEAD:main`, { cwd: tmpDir });
         } catch (err) {
@@ -190,6 +202,10 @@ class GithubProvisionService {
             }
             
             await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_TOKEN', pat);
+            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_OWNER', owner);
+            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_REPO', repo);
+            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_REF', 'main');
+            await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_API_URL', 'https://api.github.com');
             await upsertEnvKey(envFile, 'REAL_CLIENT_PAYLOAD_PUBLIC_KEY', rsaPublicKeyBase64);
             await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_WORKFLOW_COMMIT', workflowCommit);
             await upsertEnvKey(envFile, 'REAL_CLIENT_GITHUB_WORKFLOWS', '{"linux":"real-client-build.yml","windows":"real-client-build.yml"}');

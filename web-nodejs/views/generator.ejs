@@ -305,5 +305,61 @@
             </section>
         </div>
         ${realClientPanel}
+
+        <!-- GitHub Auto-Provision Modal -->
+        <div id="github-provision-modal" class="github-provision-overlay hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99999; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px;">
+            <div class="card" style="width: 100%; max-width: 500px; background: var(--bg-card, #ffffff); border-radius: 12px; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); border: 1px solid var(--border-color, #e2e8f0); position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.25rem; font-weight: 600;">
+                        <span class="material-icons" style="color: #6366f1;">auto_awesome</span>
+                        ${_('generator.auto_provision_title')}
+                    </h3>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('github-provision-modal').classList.add('hidden')" style="padding: 4px; border-radius: 6px; cursor: pointer;">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+                
+                <p style="color: var(--text-muted, #64748b); font-size: 0.9em; margin: 0 0 20px 0; line-height: 1.5;">
+                    ${_('generator.auto_provision_desc')}
+                </p>
+                
+                <div style="margin-bottom: 20px; padding: 12px; border-radius: 8px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                    <div>
+                        <strong style="display: block; font-size: 0.85em; color: #4f46e5;">Need a GitHub Token?</strong>
+                        <span style="font-size: 0.8em; color: var(--text-muted);">Click to generate with pre-selected scopes</span>
+                    </div>
+                    <a href="https://github.com/settings/tokens/new?description=BetterDesk+Build+Repository&scopes=repo,workflow" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="white-space: nowrap; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px;">
+                        <span class="material-icons" style="font-size: 1.1em;">open_in_new</span> Generate PAT
+                    </a>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9em;">${_('generator.auto_provision_pat_label')}</label>
+                    <input type="password" id="github-pat-input" class="form-control" placeholder="ghp_..." style="width: 100%; box-sizing: border-box; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color, #cbd5e1);">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9em;">${_('generator.auto_provision_repo_label')}</label>
+                    <input type="text" id="github-repo-name" class="form-control" value="BetterDesk-Client-Builds" style="width: 100%; box-sizing: border-box; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color, #cbd5e1);">
+                </div>
+                
+                <div id="github-provision-status" style="display: none; margin-bottom: 20px; padding: 12px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; font-size: 0.88em;">
+                    <span class="material-icons" style="font-size: 1.2em; vertical-align: middle; animation: spin 1s linear infinite; margin-right: 6px;">sync</span>
+                    <span id="github-provision-status-text">Provisioning... this may take a minute.</span>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('github-provision-modal').classList.add('hidden')">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-submit-github-provision" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <span class="material-icons" style="font-size: 1.1em;">auto_awesome</span>
+                        ${_('generator.auto_provision_start')}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <style>
+        .github-provision-overlay.hidden { display: none !important; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        </style>
     `
 }) %>

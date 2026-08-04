@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,9 +3622,9 @@
         "channel_apply_hint": "Onaydan sonra kaydedilir. Ardından Güncellemeleri kontrol et.",
         "channel_confirm_switch": "Kaynağı {from} → {to} olarak değiştir? Yüklü commit, güncelleme kontrolüne kadar aynı kalır.",
         "docker_title": "Docker image dağıtımı",
-        "docker_desc": "Bu konsol önceden oluşturulmuş bir konteyner görüntüsünden çalışır (resmi all-in-one veya legacy split). Güncellemeler ana makinede GHCR'den daha yeni konteyner görüntü(ler)i çekilerek uygulanır; uygulama içi kurulum veya Go yeniden derleme değil.",
+        "docker_desc": "Bu konsol önceden oluşturulmuş bir konteyner görüntüsünden çalışır. Güncellemeler uygulama içi kurulum veya Go yeniden derleme yerine GHCR'den daha yeni görüntüler çekilerek uygulanır.",
         "docker_install_note": "Uygulama içi kurulum Docker'da devre dışıdır. Yukarıdaki komutları ana makinede çalıştırın, ardından bu sayfayı yenileyin.",
-        "docker_update_available": "Yeni konteyner görüntü(ler)i mevcut",
+        "docker_update_available": "Yeni konteyner görüntüleri mevcut",
         "docker_sha_unknown": "Güncel (görüntü commit bilinmiyor)",
         "docker_images": "Görüntüler",
         "more_options": "Diğer seçenekler",

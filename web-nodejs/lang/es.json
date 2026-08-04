@@ -916,7 +916,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Puerto",
@@ -3609,9 +3616,9 @@
         "channel_apply_hint": "Tras confirmar se guarda al instante. Luego pulse Comprobar actualizaciones.",
         "channel_confirm_switch": "¿Cambiar origen de {from} a {to}? El commit instalado se mantiene hasta comprobar actualizaciones.",
         "docker_title": "Despliegue de imágenes Docker",
-        "docker_desc": "Esta consola se ejecuta desde una imagen de contenedor precompilada (all-in-one oficial o split legacy). Las actualizaciones se aplican en el host descargando imagen(es) más recientes de GHCR, no mediante instalación en la app ni recompilación Go.",
+        "docker_desc": "Esta consola se ejecuta desde una imagen de contenedor precompilada. Las actualizaciones se aplican descargando imágenes más recientes de GHCR, no mediante instalación en la app ni recompilación Go.",
         "docker_install_note": "La instalación en la app está deshabilitada en Docker. Ejecute los comandos anteriores en el host y actualice esta página.",
-        "docker_update_available": "Nueva(s) imagen(es) de contenedor disponible(s)",
+        "docker_update_available": "Nuevas imágenes de contenedor disponibles",
         "docker_sha_unknown": "Actualizado (commit de imagen desconocido)",
         "docker_images": "Imágenes",
         "more_options": "Más opciones",

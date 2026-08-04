@@ -922,7 +922,14 @@
         "toolchain_cgo": "CGO / mingw cross-compiler required for Windows Fyne builds.",
         "toolchain_msi_missing": "MSI builder (wixl) not found — Windows installed builds will fail.",
         "toolchain_go_missing": "Go is not available — Support Agent builds cannot run.",
-        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}})."
+        "rebuild_pending_banner": "A generator rebuild is pending from the last update ({{reason}}).",
+        "auto_provision_button": "Auto-Provision GitHub",
+        "auto_provision_title": "Auto-Provision GitHub Build Repository",
+        "auto_provision_desc": "This will automatically create a private GitHub repository, inject the RustDesk build workflows, generate encryption keys, upload secrets, and configure BetterDesk.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_pat_hint": "Needs repo and workflow scopes. A fine-grained PAT is recommended.",
+        "auto_provision_repo_label": "Repository Name",
+        "auto_provision_start": "Start Provisioning"
     },
     "server": {
         "port": "Port",
@@ -3615,9 +3622,9 @@
         "channel_apply_hint": "Tallennetaan heti vahvistuksen jälkeen. Sitten Tarkista päivitykset.",
         "channel_confirm_switch": "Vaihda lähde {from} → {to}? Asennettu commit pysyy kunnes tarkistat päivitykset.",
         "docker_title": "Docker-kuvan käyttöönotto",
-        "docker_desc": "Tämä konsoli toimii valmiista kontainerikuvasta (virallinen all-in-one tai legacy split). Päivitykset tehdään isännässä vetämällä uudempia kontainerikuvia GHCR:stä, ei sovelluksen asennuksella tai Go-uudelleenkäännöksellä.",
+        "docker_desc": "Tämä konsoli toimii valmiista kontainerikuvasta. Päivitykset tehdään vetämällä uudempia kuvia GHCR:stä, ei sovelluksen asennuksella tai Go-uudelleenkäännöksellä.",
         "docker_install_note": "Sovelluksen sisäinen asennus on poissa käytöstä Dockerissa. Suorita yllä olevat komennot isännöintikoneella ja päivitä sitten tämä sivu.",
-        "docker_update_available": "Uusi kontainerikuva / uusia kuvia saatavilla",
+        "docker_update_available": "Uusia kontainerikuvia saatavilla",
         "docker_sha_unknown": "Ajan tasalla (kuvan commit tuntematon)",
         "docker_images": "Kuvat",
         "more_options": "Lisäasetukset",

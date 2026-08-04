@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Auto-Provision GitHub Build Repository:** One-click automated setup for the RustDesk Client Generator. Automatically creates a private GitHub repository, injects build workflows, generates RSA/Ed25519 payload and signing keys, uploads GitHub Actions secrets, and updates local server configuration.
 - **Device connected-time reports** — persist server-observed presence intervals in SQLite or PostgreSQL, show the current connection duration on Devices, provide date and “Connected only” filters with per-PC/day totals, and export selected devices as a UTF-8 CSV. Presence reports measure device connectivity, not keyboard or mouse activity.
 
 ### Fixed

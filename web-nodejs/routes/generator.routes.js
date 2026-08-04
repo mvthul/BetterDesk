@@ -496,6 +496,21 @@ router.get('/api/generator/real-client/builds/:buildId/download', requireAuth, r
     }
 });
 
+const githubProvisionService = require('../services/githubProvisionService');
+
+router.post('/api/panel/generator/real-client/provision-github', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { pat, repoName } = req.body;
+        if (!pat || !repoName) return res.status(400).json({ success: false, error: 'PAT and Repository Name are required' });
+        
+        const result = await githubProvisionService.provision(pat, repoName);
+        res.json(result);
+    } catch (error) {
+        console.error('[github-provision]', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 router.post('/api/generator/bundles', requireAuth, requireAdmin, async (req, res) => {
     try {
         const name = String(req.body.name || '').trim().slice(0, 100);
