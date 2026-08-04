@@ -14,10 +14,90 @@
 
 ---
 
-## [3.5.4] — 2026-08-01
+## [3.5.13] — 2026-08-03
 
 ### Changed
 - _(none yet)_
+
+---
+
+## [3.5.12] — 2026-08-03
+
+### Fixed
+- **Enrollment outbound same-NAT bypass (#302 residual):** PunchHole/RequestRelay initiator auth no longer uses IP-only `FindByIP` (a pending client behind the same public NAT as an approved peer could inherit that peer’s identity with no `Rejected outbound` log). Auth now requires exact `ip:port` (`FindByAddr`), the same TCP session after `RegisterPk`, a BetterDesk client login token, or `PANEL_SIGNAL_PROXY_CIDRS`. Ships via panel update (Go signal restart).
+- **Theme toggle blue flash (#320):** Light ↔ Dark preview briefly set solid hex into `--accent-*-muted` / `--ux35-active-bg`, so Enrollment filter pills, active sidebar item, and user avatar flashed bright blue until branding.css reloaded. Inline preview now uses the same `rgba(..., 0.15)` muted conversion as branding CSS. Ships via panel update.
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.11] — 2026-08-03
+
+### Added
+- **Support Agent completion (CDAP path):** Web Remote file transfer, in-session chat, remote audio, lock/restart control relay; Generator toolchain diagnostics + per-platform retry; immediate bundle rebuild after panel updates; last-good CDAP/API endpoint failover; branding seal + optional garble/UPX for release builds; capability flags in bundle branding. Ships via panel update (rebuild Support Agent bundles after update).
+
+### Docs
+- **Support Agent** documented as the active end-user client: [`Desktop-Clients.md`](docs/wiki/Desktop-Clients.md), [`Client-Generator.md`](docs/wiki/Client-Generator.md), [`PROJECT_STRUCTURE.md`](docs/architecture/PROJECT_STRUCTURE.md).
+- **Docker panel HTTPS mismatch (#299):** documented Firefox `SSL_ERROR_RX_RECORD_TOO_LONG` / Chrome `ERR_SSL_PROTOCOL_ERROR` when opening `https://…:5000` against the default HTTP-only GHCR image — [`DOCKER_TROUBLESHOOTING.md`](docs/docker/DOCKER_TROUBLESHOOTING.md), [`DOCKER_QUICKSTART.md`](docs/docker/DOCKER_QUICKSTART.md).
+
+---
+
+## [3.5.10] — 2026-08-03
+
+### Fixed
+- **Enrollment Requests filter contrast (#320):** active status filter buttons used undefined `--primary` with white text, so labels were unreadable in light theme. Active state now uses `--accent-blue` / `--accent-blue-muted` (same pattern as Devices/Tickets). Ships via panel update.
+
+---
+
+## [3.5.9] — 2026-08-01
+
+### Changed
+- **Help panel replaces guided tours:** the console Help control (UX 3.5, classic rail, Desktop Mode) opens a right-side panel with project supporters and GitHub / sponsorship links instead of spotlight tutorials. Tutorial JS/CSS, Settings → Tutorials, and the floating help FAB are removed. Supporters data lives in `web-nodejs/config/supporters.json` (keep in sync with `SPONSORS.md`). Ships via panel update.
+
+---
+
+## [3.5.8] — 2026-08-01
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.7] — 2026-08-01
+
+### Fixed
+- **Native install TLS self-signed deploy regression (#325, discussion #322):** re-applied `_safe_cp_tls_file` no-op when source and dest are the same real file. The v3.4.3 fix was lost on the 3.5.0 merge; fresh `install.sh --native` again failed with `cp: cannot stat '.../betterdesk.crt'`. Symlink→copy for Let's Encrypt (#219) is unchanged. Ships via installer / `betterdesk.sh` (not panel-only). Verify: install completes past “Generating self-signed TLS certificates” with both `/opt/betterdesk/ssl/betterdesk.crt` and `.key` present.
+- **UX 3.5 topbar turned blue / unreadable in light theme:** topbar chrome is now theme-invariant (always dark `#161b22` with light ink). Light/dark still flips sidebar and content. Ships via panel update.
+
+### Changed
+- _(none yet)_
+
+### Docs
+- **Peer password vs BetterDesk login (discussion #285):** clarified that Access Policy / device groups do not bypass the RustDesk peer password — [`Fleet-and-Policies.md`](docs/wiki/Fleet-and-Policies.md), [`SCOPED_REMOTE_USER.md`](docs/features/SCOPED_REMOTE_USER.md), [`RUSTDESK_CLIENT_DEPLOYMENT.md`](docs/setup/RUSTDESK_CLIENT_DEPLOYMENT.md).
+
+---
+
+## [3.5.6] — 2026-08-01
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.5] — 2026-08-01
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.4] — 2026-08-01
+
+### Fixed
+- **Address Book ACL bypass (restricted users) (#342):** `GET /api/ab` (and personal AB / tags) now filters peers and fleet tags through the same device-group / folder ACL as `/api/peers/list`, so org shared address-book merge and stale entries no longer expose out-of-scope machines. Unscoped `GET /api/peers` (without `accessible`/`pageSize`) applies the same ACL for non-admin roles. Ships via panel update (Go server + console).
+- **Legacy SQLite role CHECK blocking Phase 52 sync (#342):** upgraded `users` tables that still had `CHECK (role IN ('admin','operator','viewer'))` are rebuilt on Go `Migrate()` so `super_admin` / `global_admin` / `server_admin` / `pro` sync correctly. Installer/docs creators no longer add the old CHECK. Ships via panel update (Go server restart/migrate).
+- **MeshAgent `.msh` `bad size` (#336):** `GET /api/mesh/download.msh` no longer embeds the static 40-hex MeshID placeholder. Panel/API now emit a stable per-group 96-hex (SHA-384) `MeshID` (optional `mesh_id` query still accepted when 64/96 hex). Ships via panel update (Go restart). Verify: download `.msh` → `MeshID=` is `0x` + 96 hex chars; MeshAgent no longer exits with `bad size`.
 
 ---
 
@@ -2573,3 +2653,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [3.5.2]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.1...v3.5.2
 [3.5.3]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.2...v3.5.3
 [3.5.4]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.3...v3.5.4
+[3.5.5]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.4...v3.5.5
+[3.5.6]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.5...v3.5.6
+[3.5.7]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.6...v3.5.7
+[3.5.8]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.7...v3.5.8
+[3.5.9]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.8...v3.5.9
+[3.5.10]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.9...v3.5.10
+[3.5.11]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.10...v3.5.11
+[3.5.12]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.11...v3.5.12
+[3.5.13]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.12...v3.5.13

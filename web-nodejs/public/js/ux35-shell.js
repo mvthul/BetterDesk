@@ -141,7 +141,7 @@
         '--ux35-bg', '--ux35-sidebar-bg', '--ux35-card-bg', '--ux35-border',
         '--ux35-border-light', '--ux35-text', '--ux35-muted', '--ux35-hover',
         '--ux35-primary', '--ux35-active-bg', '--ux35-glass-blur', '--ux35-glass-saturate',
-        '--ux35-topbar-bg', '--ux35-topbar-fg', '--ux35-topbar-fg-muted'
+        '--ux35-topbar-bg', '--ux35-topbar-fg', '--ux35-topbar-fg-muted', '--ux35-topbar-border'
     ];
 
     function clearThemeInlineOverrides() {
@@ -149,6 +149,18 @@
         THEME_INLINE_KEYS.forEach(function (key) {
             root.removeProperty(key);
         });
+    }
+
+    /** Match brandingService.hexToMutedRgba — solid hex → translucent muted for theme preview. */
+    function hexToMutedRgba(hex, alpha) {
+        if (hex == null) return null;
+        var raw = String(hex).trim().replace(/^#/, '');
+        if (!/^[0-9a-fA-F]{6}$/.test(raw)) return null;
+        var r = parseInt(raw.substring(0, 2), 16);
+        var g = parseInt(raw.substring(2, 4), 16);
+        var b = parseInt(raw.substring(4, 6), 16);
+        var a = (typeof alpha === 'number' && isFinite(alpha)) ? alpha : 0.15;
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + a + ')';
     }
 
     function applyThemeLocally(next) {
@@ -167,8 +179,16 @@
             borderPrimary: '--border-primary', borderSecondary: '--border-secondary'
         };
         Object.keys(palette).forEach(function (key) {
-            if (map[key]) root.setProperty(map[key], palette[key]);
+            if (!map[key]) return;
+            var value = palette[key];
+            // Muted accents must be translucent (same as branding.css) or filters/nav/avatar flash solid blue
+            if (/Muted$/.test(key) && typeof value === 'string' && value.charAt(0) === '#') {
+                value = hexToMutedRgba(value, 0.15) || value;
+            }
+            root.setProperty(map[key], value);
         });
+
+        var accentBlueMutedCss = hexToMutedRgba(palette.accentBlueMuted, 0.15) || palette.accentBlueMuted;
 
         // Solid surfaces — opaque tokens so UX 3.5 repaints immediately (no glass compositor lag)
         root.setProperty('--bg-hover', next === 'light' ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.06)');
@@ -189,19 +209,15 @@
         root.setProperty('--ux35-muted', palette.textSecondary);
         root.setProperty('--ux35-hover', next === 'light' ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.06)');
         root.setProperty('--ux35-primary', palette.accentBlue);
-        root.setProperty('--ux35-active-bg', palette.accentBlueMuted);
+        root.setProperty('--ux35-active-bg', accentBlueMutedCss);
         root.setProperty('--ux35-glass-blur', '0px');
         root.setProperty('--ux35-glass-saturate', '1');
 
-        if (next === 'light') {
-            root.setProperty('--ux35-topbar-bg', palette.accentBlue);
-            root.setProperty('--ux35-topbar-fg', '#ffffff');
-            root.setProperty('--ux35-topbar-fg-muted', 'rgba(255,255,255,0.78)');
-        } else {
-            root.setProperty('--ux35-topbar-bg', palette.bgElevated);
-            root.setProperty('--ux35-topbar-fg', palette.textPrimary);
-            root.setProperty('--ux35-topbar-fg-muted', palette.textSecondary);
-        }
+        // Topbar chrome is theme-invariant (always dark)
+        root.setProperty('--ux35-topbar-bg', '#161b22');
+        root.setProperty('--ux35-topbar-fg', '#e6edf3');
+        root.setProperty('--ux35-topbar-fg-muted', '#8b949e');
+        root.setProperty('--ux35-topbar-border', '#30363d');
 
         // Force a synchronous style flush so paint does not wait for the next click
         void document.documentElement.offsetHeight;
@@ -419,15 +435,6 @@
         else if (MQ_DRAWER.addListener) MQ_DRAWER.addListener(onMqChange);
     }
 
-    function initHelp() {
-        var helpBtn = document.getElementById('ux35-help-btn');
-        if (helpBtn) {
-            helpBtn.addEventListener('click', function () {
-                if (typeof Tutorial !== 'undefined') Tutorial.start('console');
-            });
-        }
-    }
-
     function initThemeBtn() {
         var btn = document.getElementById('ux35-theme-btn');
         if (btn) btn.addEventListener('click', cycleThemePreview);
@@ -460,7 +467,6 @@
         restoreSidebarWidth();
         initDrawer();
         initResize();
-        initHelp();
         initThemeBtn();
         initScrollPreserve();
     }

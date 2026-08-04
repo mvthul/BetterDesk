@@ -38,7 +38,6 @@
             initEmailSection();
         }
 
-        initTutorialSection();
         loadAuditLog();
         loadServerInfo();
         initMeshSettingsSection();
@@ -487,9 +486,13 @@
                 const resp = await Utils.api('/api/mesh/groups');
                 const data = resp.data || resp;
                 meshGroups = Array.isArray(data.groups) ? data.groups : [];
-                groupsList.innerHTML = meshGroups.map((g, idx) =>
-                    `<div class="mesh-group-row" data-idx="${idx}"><code>${Utils.escapeHtml(g.id || '')}</code> — ${Utils.escapeHtml(g.name || '')}</div>`
-                ).join('') || '<p class="text-muted">' + tSettings('mesh.groups_empty', 'No mesh groups yet.') + '</p>';
+                groupsList.innerHTML = meshGroups.map((g, idx) => {
+                    const meshId = g.mesh_id || '';
+                    const meshIdLine = meshId
+                        ? `<br><small>MeshID=<code>${Utils.escapeHtml(meshId)}</code></small>`
+                        : '';
+                    return `<div class="mesh-group-row" data-idx="${idx}"><code>${Utils.escapeHtml(g.id || '')}</code> — ${Utils.escapeHtml(g.name || '')}${meshIdLine}</div>`;
+                }).join('') || '<p class="text-muted">' + tSettings('mesh.groups_empty', 'No mesh groups yet.') + '</p>';
             } catch {
                 groupsList.innerHTML = '<p class="text-muted">' + tSettings('mesh.groups_load_error', 'Could not load groups.') + '</p>';
             }
@@ -527,9 +530,13 @@
             if (idInput) idInput.value = '';
             if (nameInputG) nameInputG.value = '';
             if (groupsList) {
-                groupsList.innerHTML = meshGroups.map((g) =>
-                    `<div class="mesh-group-row"><code>${Utils.escapeHtml(g.id)}</code> — ${Utils.escapeHtml(g.name)}</div>`
-                ).join('');
+                groupsList.innerHTML = meshGroups.map((g) => {
+                    const meshId = g.mesh_id || '';
+                    const meshIdLine = meshId
+                        ? `<br><small>MeshID=<code>${Utils.escapeHtml(meshId)}</code></small>`
+                        : '';
+                    return `<div class="mesh-group-row"><code>${Utils.escapeHtml(g.id)}</code> — ${Utils.escapeHtml(g.name)}${meshIdLine}</div>`;
+                }).join('');
             }
         });
 
@@ -544,9 +551,15 @@
         });
 
         if (downloadBtn && nameInput) {
-            downloadBtn.addEventListener('click', (e) => {
+            downloadBtn.addEventListener('click', () => {
                 const name = encodeURIComponent(nameInput.value.trim() || 'BetterDesk Mesh');
-                downloadBtn.href = `/api/mesh/download.msh?name=${name}`;
+                const group = meshGroups.find((g) => g.id === 'default') || meshGroups[0];
+                const meshId = (group && group.mesh_id) ? String(group.mesh_id).trim() : '';
+                let href = `/api/mesh/download.msh?name=${name}`;
+                if (meshId) {
+                    href += `&mesh_id=${encodeURIComponent(meshId)}`;
+                }
+                downloadBtn.href = href;
             });
         }
 
@@ -2738,65 +2751,6 @@
         el.innerHTML = html;
     }
     
-    // ==================== Tutorials ====================
-
-    function initTutorialSection() {
-        const toggle = document.getElementById('tutorials-enabled');
-        const resetBtn = document.getElementById('tutorials-reset-btn');
-        if (!toggle) return;
-
-        // Read current state from Tutorial system (localStorage)
-        const tutorialDisabled = typeof Tutorial !== 'undefined' ? Tutorial.isDisabled() : 
-            localStorage.getItem('betterdesk_tutorial_disabled') === 'true';
-        toggle.checked = !tutorialDisabled;
-
-        toggle.addEventListener('change', function() {
-            const disabled = !toggle.checked;
-            if (typeof Tutorial !== 'undefined') {
-                Tutorial.setDisabled(disabled);
-            } else {
-                localStorage.setItem('betterdesk_tutorial_disabled', disabled ? 'true' : 'false');
-            }
-            // Notify tutorial.js to show/hide help button
-            window.dispatchEvent(new CustomEvent('tutorial:stateChanged', { detail: { disabled: disabled } }));
-
-            if (typeof Toast !== 'undefined') {
-                Toast.success(
-                    disabled ? _('settings.tutorials_disabled_toast') : _('settings.tutorials_enabled_toast'),
-                    '', 3000
-                );
-            }
-        });
-
-        // Listen for changes from help menu toggle
-        window.addEventListener('tutorial:stateChanged', function(e) {
-            if (e.detail && typeof e.detail.disabled === 'boolean') {
-                toggle.checked = !e.detail.disabled;
-            }
-        });
-
-        if (resetBtn) {
-            resetBtn.addEventListener('click', async function() {
-                const confirmed = await settingsConfirmCritical({
-                    title: tSettings('confirm.tutorials_reset_title', 'Reset tutorials?'),
-                    message: tSettings('confirm.tutorials_reset', 'Reset all tutorial progress? Guided tips will show again on each page.'),
-                    confirmLabel: _('tutorial.reset_all'),
-                    icon: 'refresh'
-                });
-                if (!confirmed) return;
-
-                if (typeof Tutorial !== 'undefined') {
-                    Tutorial.resetTutorial();
-                } else {
-                    localStorage.removeItem('betterdesk_tutorial_seen');
-                }
-                if (typeof Toast !== 'undefined') {
-                    Toast.success(_('settings.tutorials_reset_toast'), '', 3000);
-                }
-            });
-        }
-    }
-
     // ==================== Self-Update ====================
     
     let _updateState = { remoteSHA: null, changedData: null };
@@ -3885,8 +3839,20 @@
             const failed  = result.failed?.length || 0;
             const removed = result.removed?.length || 0;
             logUpdate(`${_('updates.applied')}: ${applied} · ${_('updates.failed')}: ${failed} · ${_('updates.removed')}: ${removed}`);
+            if (result.agentRebuildQueued) {
+                logUpdate(
+                    _('updates.agent_rebuild_queued')
+                        .replace('{{count}}', String(result.agentRebuildBundles ?? '?'))
+                        .replace('{{staged}}', String(result.agentSourcesStaged ?? 0))
+                        .replace('{{paths}}', String(result.agentSourcePaths ?? 0))
+                );
+            }
             for (const item of (result.failed || [])) {
-                logUpdate(`${item.file}: ${item.error || ''}`);
+                if (item.file === 'support-agent-source-sync') {
+                    logUpdate(`${_('updates.agent_source_sync_failed')} ${item.error || ''}`);
+                } else {
+                    logUpdate(`${item.file}: ${item.error || ''}`);
+                }
             }
             for (const item of (result.servicesFailed || [])) {
                 logUpdate(`${item.service}: ${item.error || ''}`);

@@ -1,7 +1,7 @@
 ﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    BetterDesk Console Manager v3.5.4 - All-in-One Interactive Tool for Windows
+    BetterDesk Console Manager v3.5.13 - All-in-One Interactive Tool for Windows
 
 .DESCRIPTION
     Features:
@@ -102,7 +102,7 @@ param(
 # Configuration
 #===============================================================================
 
-$script:VERSION = "3.5.4"
+$script:VERSION = "3.5.13"
 $script:ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Auto mode flags
@@ -2332,8 +2332,7 @@ cursor.execute('''
         role VARCHAR(20) NOT NULL DEFAULT 'viewer',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         last_login DATETIME,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        CHECK (role IN ('admin', 'operator', 'viewer'))
+        is_active INTEGER NOT NULL DEFAULT 1
     )
 ''')
 
