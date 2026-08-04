@@ -182,7 +182,7 @@ class GithubProvisionService {
 
         // 7. Update Local Environment
         try {
-            const envFile = path.resolve(__dirname, '../../.env'); // Target the root .env
+            const envFile = process.env.CONSOLE_ENV_FILE || path.resolve(__dirname, '../.env'); // Target the console .env
             
             // We append or overwrite keys. `upsertEnvKey` creates the file if it doesn't exist? Wait, we should make sure the file exists.
             if (!fs.existsSync(envFile)) {
