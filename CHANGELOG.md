@@ -1,30 +1,13 @@
 ## [Unreleased]
 
-<<<<<<< HEAD
-### Fixed
-<<<<<<< HEAD
-<<<<<<< HEAD
-- **Browser Remote Desktop over relay WSS:** send raw RustDesk protobuf
-  payloads as native WebSocket messages and translate framing only in the
-  optional Node TCP bridge, including mixed browser-WebSocket/desktop-TCP
-  sessions.
-=======
-- **Peer ID changes while connected (#213):** renaming a registered device now
-  preserves its live TCP/WSS transport, follows the renamed WSS identity for
-  heartbeats, and permits safe round-trip renames without treating the current
-  ID as stale history. Incoming sessions can reach the device immediately
-  after the rename, with SQLite and PostgreSQL behavior kept consistent.
->>>>>>> pr-282
-=======
 ### Added
 
 - **Device connected-time reports** — persist server-observed presence intervals in SQLite or PostgreSQL, show the current connection duration on Devices, provide date and “Connected only” filters with per-PC/day totals, and export selected devices as a UTF-8 CSV. Presence reports measure device connectivity, not keyboard or mouse activity.
 
 ### Fixed
-- **Device List widget popout:** load the complete widget stylesheet in
-  detached windows, retain a compact fallback layout, prioritize connected
-  devices and show their current server-observed duration.
->>>>>>> pr-283
+- **Browser Remote Desktop over relay WSS:** send raw RustDesk protobuf payloads as native WebSocket messages and translate framing only in the optional Node TCP bridge, including mixed browser-WebSocket/desktop-TCP sessions.
+- **Peer ID changes while connected (#213):** renaming a registered device now preserves its live TCP/WSS transport, follows the renamed WSS identity for heartbeats, and permits safe round-trip renames without treating the current ID as stale history. Incoming sessions can reach the device immediately after the rename, with SQLite and PostgreSQL behavior kept consistent.
+- **Device List widget popout:** load the complete widget stylesheet in detached windows, retain a compact fallback layout, prioritize connected devices and show their current server-observed duration.
 
 ### Changed
 - _(none yet)_
@@ -41,7 +24,6 @@
 ## [3.5.3] — 2026-08-01
 
 ### Fixed
-<<<<<<< HEAD
 - **Dashboard Copy deploy string with invalid/placeholder public key (#340):** client config / deploy string / QR now require a valid Ed25519 key (base64 → 32 bytes), reject placeholders, and fall back to the live Go `GET /api/server-key` when `id_ed25519.pub` is missing or bad. Windows installer also sets `PUB_KEY_PATH` in the console NSSM environment. Ships via panel update (re-run `betterdesk.ps1` service setup to refresh NSSM env on Windows).
 
 ### Changed

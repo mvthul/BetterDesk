@@ -211,7 +211,6 @@ function initWsProxy(server, sessionMiddleware) {
                             guestToken = '';
                         }
 
-<<<<<<< HEAD
                         if (guestToken) {
                             try {
                                 // Must validate against Go store — non-empty guest= alone is not auth.
@@ -242,30 +241,19 @@ function initWsProxy(server, sessionMiddleware) {
 
                     if (pathname === '/ws/rendezvous') {
                         rendezvousWss.handleUpgrade(request, socket, head, (ws) => {
+                            ws._betterdeskMessageTransport = false;
                             rendezvousWss.emit('connection', ws, request);
                         });
                     } else {
                         relayWss.handleUpgrade(request, socket, head, (ws) => {
+                            // Browser RdClient uses native WebSocket message framing.
+                            // If this request reaches the Node TCP bridge, translate
+                            // each WS message to/from RustDesk BytesCodec frames.
+                            ws._betterdeskMessageTransport = url.searchParams.get('transport') === 'message';
                             relayWss.emit('connection', ws, request);
                         });
                     }
                 })();
-=======
-                if (pathname === '/ws/rendezvous') {
-                    rendezvousWss.handleUpgrade(request, socket, head, (ws) => {
-                        ws._betterdeskMessageTransport = false;
-                        rendezvousWss.emit('connection', ws, request);
-                    });
-                } else {
-                    relayWss.handleUpgrade(request, socket, head, (ws) => {
-                        // Browser RdClient uses native WebSocket message framing.
-                        // If this request reaches the Node TCP bridge, translate
-                        // each WS message to/from RustDesk BytesCodec frames.
-                        ws._betterdeskMessageTransport = url.searchParams.get('transport') === 'message';
-                        relayWss.emit('connection', ws, request);
-                    });
-                }
->>>>>>> da43fc06 (fix(rdclient): use native WebSocket relay framing)
             });
         }
     );

@@ -28,21 +28,9 @@ import (
 // a peer that is not registered (or not enrollment-approved in managed/locked).
 const refuseInitiatorNotAuthorized = "Not authorized"
 
-<<<<<<< HEAD
 // panelWebRemoteInitiatorID is the synthetic initiator id logged when PunchHole/
 // RequestRelay arrives from the Node panel WebSocket→TCP proxy (#302 Web Remote).
 const panelWebRemoteInitiatorID = "panel-web-remote"
-
-// relayTransportMismatch reports whether initiator and target use incompatible
-// relay transports (WebSocket Mode vs native TCP/UDP). Signaling may still be
-// mixed; this gate only covers the typical case where ConnType reflects the
-// client's relay mode. The relay server remains the hard barrier.
-func relayTransportMismatch(initiator, target peer.ConnType) bool {
-	return (initiator == peer.ConnWS) != (target == peer.ConnWS)
-}
-
-=======
->>>>>>> eb692cc3 (fix(relay): bridge mixed WebSocket and native framing)
 // handleUDPMessage dispatches a UDP message to the appropriate handler.
 func (s *Server) handleUDPMessage(msg *pb.RendezvousMessage, raddr *net.UDPAddr) {
 	switch {

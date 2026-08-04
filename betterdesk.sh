@@ -3123,8 +3123,8 @@ install_nodejs_console() {
     
     # Install npm dependencies with proper error handling
     local npm_log="/tmp/betterdesk_npm_install.log"
-    if ! npm install --production > "$npm_log" 2>&1; then
-        print_error "npm install failed! Check log:"
+    if ! npm install --production --ignore-scripts=false > "$npm_log" 2>&1 || ! npm rebuild >> "$npm_log" 2>&1; then
+        print_error "npm install/rebuild failed! Check log:"
         tail -20 "$npm_log"
         print_info "Full log: $npm_log"
         return 1
@@ -4642,8 +4642,8 @@ update_from_github() {
     print_step "Installing npm dependencies..."
     cd "$CONSOLE_PATH"
     local npm_log="/tmp/betterdesk_npm_install.log"
-    if npm install --production --no-audit --no-fund > "$npm_log" 2>&1; then
-        print_success "npm dependencies installed"
+    if npm install --production --no-audit --no-fund --ignore-scripts=false > "$npm_log" 2>&1 && npm rebuild >> "$npm_log" 2>&1; then
+        print_success "npm dependencies installed and native modules rebuilt"
     else
         print_warning "npm install had issues (non-critical):"
         tail -5 "$npm_log"
