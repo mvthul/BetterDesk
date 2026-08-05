@@ -503,7 +503,8 @@ router.post('/api/panel/generator/real-client/provision-github', requireAuth, re
         const { pat, repoName } = req.body;
         if (!pat || !repoName) return res.status(400).json({ success: false, error: 'PAT and Repository Name are required' });
         
-        const result = await githubProvisionService.provision(pat, repoName);
+        const baseUrl = process.env.PANEL_PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+        const result = await githubProvisionService.provision(pat, repoName, baseUrl);
         res.json(result);
     } catch (error) {
         console.error('[github-provision]', error);

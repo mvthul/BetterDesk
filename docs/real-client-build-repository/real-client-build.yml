@@ -88,7 +88,7 @@ jobs:
           MACOS_ARM64_RUNNER: ${{ vars.REAL_CLIENT_RUNNER_MACOS_ARM64 }}
         run: |
           case "$BUILD_TARGET" in
-            windows-x64-exe|windows-x64-msi|windows-x86-exe) runner="$WINDOWS_X64_RUNNER" ;;
+            windows-x64-exe|windows-x64-msi|windows-x86-exe) runner="${WINDOWS_X64_RUNNER:-windows-latest}" ;;
             linux-x64-deb|linux-x64-appimage|linux-x64-flatpak) runner="${LINUX_X64_RUNNER:-ubuntu-22.04}" ;;
             linux-arm64-deb|linux-arm64-appimage|linux-arm64-flatpak) runner="$LINUX_ARM64_RUNNER" ;;
             android-arm64-apk|android-armv7-apk|android-x64-apk) runner="${ANDROID_X64_RUNNER:-ubuntu-22.04}" ;;
@@ -104,10 +104,19 @@ jobs:
             macos-*) environment="betterdesk-real-client-macos" ;;
             *) echo "Target has no protected signing environment" >&2; exit 1 ;;
           esac
+          if [[ -z "$runner" ]]; then
+            echo "No protected runner configured for $BUILD_TARGET. Set repository Actions variable REAL_CLIENT_RUNNER_WINDOWS_X64 (or platform variable) to a valid runner label." >&2
+            exit 1
+          fi
           if [[ "$runner" == "ubuntu-22.04" ]]; then
             case "$BUILD_TARGET" in
               linux-x64-*|android-*) ;;
               *) echo "The fixed GitHub-hosted runner is allowed only for Linux x64 and Android" >&2; exit 1 ;;
+            esac
+          elif [[ "$runner" =~ ^windows-(2022|2025|latest|x64)$ ]]; then
+            case "$BUILD_TARGET" in
+              windows-*) ;;
+              *) echo "The GitHub-hosted Windows runner is allowed only for Windows targets" >&2; exit 1 ;;
             esac
           elif [[ ! "$runner" =~ ^betterdesk-[A-Za-z0-9][A-Za-z0-9._-]{0,116}$ ]]; then
             echo "The protected runner label for $BUILD_TARGET must be ubuntu-22.04 or a dedicated betterdesk-* label" >&2

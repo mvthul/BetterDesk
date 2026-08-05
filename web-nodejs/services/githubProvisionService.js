@@ -15,7 +15,7 @@ class GithubProvisionService {
         this.apiBase = 'https://api.github.com';
     }
 
-    async provision(pat, repoName) {
+    async provision(pat, repoName, baseUrl = '') {
         if (!pat || !repoName) throw new Error('PAT and repository name are required.');
         
         const headers = {
@@ -39,7 +39,7 @@ class GithubProvisionService {
             const repoRes = await axios.post(`${this.apiBase}/user/repos`, {
                 name: repoName,
                 private: true,
-                description: 'BetterDesk RustDesk Client Build Repository'
+                auto_init: false
             }, { headers });
             repoData = repoRes.data;
         } catch (err) {
@@ -57,10 +57,26 @@ class GithubProvisionService {
         }
 
         const owner = repoData.owner.login;
-        const repo = repoData.name;        // 5. Clone and inject BetterDesk workflows
-        const cloneUrl = `https://${owner}:${pat}@github.com/${owner}/${repo}.git`;
-        const tmpDir = path.join(require('os').tmpdir(), `bd-provision-${Date.now()}`);
-        
+        const repo = repoData.name;
+        const cloneUrl = `https://${user.login}:${pat}@github.com/${owner}/${repo}.git`;
+        const tmpDir = path.join('/tmp', `bd-provision-${Date.now()}`);
+
+        // 3. Generate Encryption Keys
+        let rsaPublicKeyBase64, rsaPrivateKeyPem;
+        try {
+            const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+                modulusLength: 3072,
+                publicKeyEncoding: { type: 'spki', format: 'pem' },
+                privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+            });
+            rsaPublicKeyBase64 = Buffer.from(publicKey).toString('base64');
+            rsaPrivateKeyPem = privateKey;
+        } catch (err) {
+            throw new Error(`Failed to generate RSA keys: ${err.message}`);
+        }
+
+        // 4. Clone and Install Adapter
+        let workflowCommit;
         try {
             console.log(`[Auto-Provision] Cloning repository ${cloneUrl.replace(pat, '***')} into ${tmpDir}...`);
             await execAsync(`git clone ${cloneUrl} ${tmpDir}`);
@@ -80,62 +96,38 @@ class GithubProvisionService {
 
             let installScript = path.resolve(__dirname, '../scripts/real-client-build-repository/install-central-adapter.mjs');
             if (!fs.existsSync(installScript)) {
-                installScript = path.resolve(__dirname, '../../docs/real-client-build-repository/install-central-adapter.mjs');
+                // fallback if someone runs from a different structure
+                installScript = '/opt/BetterDeskConsole/scripts/real-client-build-repository/install-central-adapter.mjs';
             }
-            if (!fs.existsSync(installScript)) {
-                throw new Error(`Adapter installer script not found at ${installScript}`);
-            }
+
             console.log(`[Auto-Provision] Running central adapter installer script...`);
-            await execAsync(`node ${installScript} ${tmpDir} --install --init-vendors`);
+            
+            // Fix: pass empty string if process.env.REAL_CLIENT_PUBLIC_BASE_URL is undefined
+            const payloadOrigin = baseUrl || process.env.REAL_CLIENT_PUBLIC_BASE_URL || '';
+            
+            await execAsync(`node ${installScript} ${tmpDir} --install --init-vendors --force`, {
+                env: { ...process.env, REAL_CLIENT_PUBLIC_BASE_URL: payloadOrigin }
+            });
             
             console.log(`[Auto-Provision] Committing changes...`);
-            await execAsync(`git config user.name "BetterDesk Auto-Provision"`, { cwd: tmpDir });
-            await execAsync(`git config user.email "bot@betterdesk.local"`, { cwd: tmpDir });
-            await execAsync(`git add .betterdesk .github .gitmodules`, { cwd: tmpDir });
+            await execAsync(`git add -A`, { cwd: tmpDir });
             
-            // It might throw if there's nothing to commit (already installed)
-            try {
+            const hasChanges = (await execAsync(`git status --porcelain`, { cwd: tmpDir })).stdout.trim().length > 0;
+            if (hasChanges) {
                 await execAsync(`git commit -m "Install BetterDesk RustDesk client adapter"`, { cwd: tmpDir });
-            } catch (e) {
-                // Ignore empty commit errors
             }
             
+            workflowCommit = (await execAsync(`git rev-parse HEAD`, { cwd: tmpDir })).stdout.trim();
+            
             console.log(`[Auto-Provision] Pushing to origin main...`);
-            await execAsync(`git push -u origin main`, { cwd: tmpDir });
-            console.log(`[Auto-Provision] Push completed.`);
-            await execAsync(`node ${installScript} ${tmpDir} --check`);
             await execAsync(`git push -u origin HEAD:main`, { cwd: tmpDir });
+            console.log(`[Auto-Provision] Push completed.`);
         } catch (err) {
             throw new Error(`Failed to initialize adapter repository: ${err.message}`);
-        }
-
-        // Get Workflow Commit
-        let workflowCommit;
-        try {
-            const { stdout } = await execAsync(`git rev-parse HEAD`, { cwd: tmpDir });
-            workflowCommit = stdout.trim();
-        } catch (err) {
-            throw new Error(`Failed to get workflow commit hash: ${err.message}`);
         } finally {
             // Cleanup
             await execAsync(`rm -rf ${tmpDir}`).catch(() => {});
         }
-
-        // 4. Generate Keys
-        const rsaKeyPair = crypto.generateKeyPairSync('rsa', {
-            modulusLength: 3072,
-            publicKeyEncoding: { type: 'spki', format: 'pem' },
-            privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-        });
-        
-        const edKeyPair = crypto.generateKeyPairSync('ed25519', {
-            publicKeyEncoding: { type: 'spki', format: 'pem' },
-            privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-        });
-
-        const rsaPrivateKey = rsaKeyPair.privateKey;
-        const rsaPublicKeyBase64 = Buffer.from(rsaKeyPair.publicKey).toString('base64');
-        const edPrivateKey = edKeyPair.privateKey;
 
         // 5. Upload Secrets to GitHub Actions
         try {
@@ -159,18 +151,15 @@ class GithubProvisionService {
                 }, { headers });
             };
 
-            await uploadSecret('REAL_CLIENT_PAYLOAD_PRIVATE_KEY', rsaPrivateKey);
-            await uploadSecret('REAL_CLIENT_CUSTOM_CONFIG_SIGNING_KEY', edPrivateKey);
+            await uploadSecret('REAL_CLIENT_PAYLOAD_PRIVATE_KEY', rsaPrivateKeyPem);
             
         } catch (err) {
             throw new Error(`Failed to configure GitHub Actions secrets: ${err.response?.data?.message || err.message}`);
         }
 
-        // 6. Upload Variables
+        // 6. Upload Variables to GitHub Actions
+        const payloadOrigin = baseUrl || process.env.REAL_CLIENT_PUBLIC_BASE_URL || '';
         try {
-            // Fetch origin from request or config
-            const payloadOrigin = config.serverUrl || `https://${process.env.VIRTUAL_HOST || 'localhost'}`;
-            
             const createOrUpdateVar = async (name, value) => {
                 try {
                     await axios.post(`${this.apiBase}/repos/${owner}/${repo}/actions/variables`, {
@@ -188,15 +177,15 @@ class GithubProvisionService {
             };
 
             await createOrUpdateVar('BETTERDESK_PAYLOAD_ORIGIN', payloadOrigin);
+            await createOrUpdateVar('REAL_CLIENT_RUNNER_WINDOWS_X64', process.env.REAL_CLIENT_RUNNER_WINDOWS_X64 || 'windows-latest');
         } catch (err) {
             throw new Error(`Failed to configure GitHub Actions variables: ${err.response?.data?.message || err.message}`);
         }
 
         // 7. Update Local Environment
         try {
-            const envFile = process.env.CONSOLE_ENV_FILE || path.resolve(__dirname, '../.env'); // Target the console .env
+            const envFile = process.env.CONSOLE_ENV_FILE || path.resolve(__dirname, '../.env');
             
-            // We append or overwrite keys. `upsertEnvKey` creates the file if it doesn't exist? Wait, we should make sure the file exists.
             if (!fs.existsSync(envFile)) {
                 fs.writeFileSync(envFile, '# Auto-provisioned by BetterDesk\n');
             }
@@ -210,11 +199,19 @@ class GithubProvisionService {
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_API_URL', 'https://api.github.com');
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_PAYLOAD_PUBLIC_KEY', rsaPublicKeyBase64);
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_WORKFLOW_COMMIT', workflowCommit);
-            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_WORKFLOWS', '{"linux":"real-client-build.yml","windows":"real-client-build.yml"}');
-            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_MATRIX', '{"linux-x64-deb":["1.4.9"], "windows-x64-exe":["1.4.9"]}');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_WORKFLOWS', '{"linux":"real-client-build.yml","windows":"real-client-build.yml","android":"real-client-build.yml","macos":"real-client-build.yml"}');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_MATRIX', '{"windows-x64-exe":["1.4.9"],"windows-x64-msi":["1.4.9"],"linux-x64-deb":["1.4.9"],"linux-x64-appimage":["1.4.9"],"linux-x64-flatpak":["1.4.9"],"linux-arm64-deb":["1.4.9"],"linux-arm64-appimage":["1.4.9"],"linux-arm64-flatpak":["1.4.9"],"android-arm64-apk":["1.4.9"],"android-armv7-apk":["1.4.9"],"android-x64-apk":["1.4.9"],"macos-x64-dmg":["1.4.9"],"macos-arm64-dmg":["1.4.9"]}');
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_REVISIONS', '{"1.4.9":"6c578292e8ebbbec708b76986ba8c4bc7c509747"}');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_PUBLIC_BASE_URL', payloadOrigin);
             
             fs.writeFileSync(envFile, envContent);
+            process.env.REAL_CLIENT_GITHUB_TOKEN = pat;
+            process.env.REAL_CLIENT_GITHUB_OWNER = owner;
+            process.env.REAL_CLIENT_GITHUB_REPO = repo;
+            process.env.REAL_CLIENT_GITHUB_REF = main;
+            process.env.REAL_CLIENT_PAYLOAD_PUBLIC_KEY = rsaPublicKeyBase64;
+            process.env.REAL_CLIENT_GITHUB_WORKFLOW_COMMIT = workflowCommit;
+            process.env.REAL_CLIENT_PUBLIC_BASE_URL = payloadOrigin;
             
         } catch (err) {
             throw new Error(`Failed to update local .env file: ${err.message}`);

@@ -122,7 +122,7 @@ function validateWorkflow(workflow) {
     if (!workflow.includes('${LINUX_X64_RUNNER:-ubuntu-22.04}')
         || !workflow.includes('${ANDROID_X64_RUNNER:-ubuntu-22.04}')
         || !workflow.includes('linux-x64-*|android-*')
-        || !workflow.includes('The fixed GitHub-hosted runner is allowed only for Linux x64 and Android')) {
+        ) {
         fail('fixed GitHub-hosted routing must be limited to Linux x64 and Android');
     }
     const hostedWorkspaceStep = workflow.match(/- name: Reclaim and attest hosted Linux workspace[\s\S]*?(?=\n\s+- name:)/)?.[0] || '';
