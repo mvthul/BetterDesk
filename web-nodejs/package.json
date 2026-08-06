@@ -69,5 +69,11 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true,
+    "bcrypt@5.1.1": true,
+    "node-pty@1.1.0": true,
+    "protobufjs@7.6.5": true
   }
 }

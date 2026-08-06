@@ -13,7 +13,7 @@
 /* global RDProtocol, RDCompress */
 
 function rdFileDebug() {
-    if (window.BetterDesk && window.BetterDesk.debugRemote === true) {
+    if (typeof window !== "undefined" && window.BetterDesk && window.BetterDesk.debugRemote === true) {
         console.log.apply(console, arguments);
     }
 }
@@ -159,6 +159,7 @@ class RDFileTransfer {
             return this._ensureConnected().then(function () {
                 run();
             }).catch(function (err) {
+                self._emit('file_connect_error', { error: err.message || String(err) });
                 throw err;
             });
         }
@@ -328,16 +329,7 @@ class RDFileTransfer {
                 }
             }, 5000);
         };
-        if (this._ensureConnected) {
-            if (this._needsFileConnection()) {
-                this._emit('file_connecting');
-            }
-            this._ensureConnected().then(run).catch(function (err) {
-                self._emit('file_connect_error', { error: err.message || String(err) });
-            });
-        } else {
-            run();
-        }
+        this._runWithConnection(run).catch(() => {});
     }
 
     /**

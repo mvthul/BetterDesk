@@ -262,6 +262,9 @@ func TestProcessRegisterPkPopulatesPeerIP(t *testing.T) {
 	found := srv.PeerMap().FindByIP(net.ParseIP("109.38.228.247"))
 	if found == nil || found.ID != "PKIP10" {
 		t.Fatalf("FindByIP after RegisterPk = %+v, want PKIP10", found)
+	}
+}
+
 func TestProcessRegisterPkPreservesPersistedIdentityAfterRestart(t *testing.T) {
 	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
 	storedUUID := []byte("persisted-uuid-1")

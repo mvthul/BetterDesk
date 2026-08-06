@@ -28,6 +28,7 @@ import (
 // refuseInitiatorNotAuthorized is returned when PunchHole/RequestRelay comes from
 // a peer that is not registered (or not enrollment-approved in managed/locked).
 const refuseInitiatorNotAuthorized = "Not authorized"
+const refuseRelayProtocolMismatch = "Protocol mismatch: WebSocket and native TCP/UDP cannot share a relay session"
 
 // panelWebRemoteInitiatorID is the synthetic initiator id logged when PunchHole/
 // RequestRelay arrives from the Node panel WebSocket→TCP proxy (#302 Web Remote).
@@ -1289,7 +1290,6 @@ func (s *Server) handleRequestRelay(msg *pb.RequestRelay, raddr *net.UDPAddr) {
 		return
 	}
 
-	initiatorID := s.peerIDForAddr(raddr)
 	// WebSocket Mode and native TCP/UDP cannot share a relay session (#290).
 	initiatorType := peer.ConnUDP
 	if initiator := s.peers.Get(initiatorID); initiator != nil {
@@ -1411,7 +1411,7 @@ func (s *Server) handleRequestRelay(msg *pb.RequestRelay, raddr *net.UDPAddr) {
 // The transport hint remains part of this internal API because callers know
 // whether signaling arrived over TCP or WebSocket. Relay transport differences
 // are handled by the framing bridge and are not rejected here.
-func (s *Server) handleRequestRelayTCP(msg *pb.RequestRelay, raddr *net.UDPAddr, _ peer.ConnType) *pb.RendezvousMessage {
+func (s *Server) handleRequestRelayTCP(msg *pb.RequestRelay, raddr *net.UDPAddr, initiatorHint peer.ConnType) *pb.RendezvousMessage {
 	if raddr == nil {
 		log.Printf("[signal] RequestRelay (TCP): nil address, ignoring")
 		return nil
@@ -1465,22 +1465,6 @@ func (s *Server) handleRequestRelayTCP(msg *pb.RequestRelay, raddr *net.UDPAddr,
 	}
 
 	// WebSocket Mode and native TCP/UDP cannot share a relay session (#290).
-	initiatorType := initiatorHint
-	if initiator := s.peers.Get(initiatorID); initiator != nil {
-		initiatorType = initiator.ConnType
-	}
-	if relayTransportMismatch(initiatorType, target.ConnType) {
-		log.Printf("[signal] RequestRelay (TCP): protocol mismatch initiator=%s target=%s (%s vs %s)",
-			raddr, targetID, initiatorType, target.ConnType)
-		return &pb.RendezvousMessage{
-			Union: &pb.RendezvousMessage_RelayResponse{
-				RelayResponse: &pb.RelayResponse{
-					RefuseReason: refuseRelayProtocolMismatch,
-					RelayServer:  relayServer,
-				},
-			},
-		}
-	}
 	if !s.authorizeRelayTicket(relayUUID, initiatorID, targetID) {
 		return s.relayTicketRejectedResponse(relayServer)
 	}

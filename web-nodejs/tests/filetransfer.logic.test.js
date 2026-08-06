@@ -72,7 +72,7 @@ describe('RDFileTransfer dedicated connection', () => {
         expect(emit).toHaveBeenCalledWith('file_connecting');
 
         resolveConnection();
-        await new Promise(resolve => setImmediate(resolve));
+        await new Promise(resolve => setTimeout(resolve, 10));
 
         expect(sendMessage).toHaveBeenCalledWith({
             readDir: { path: 'C:\\Users', showHidden: false }
@@ -92,7 +92,7 @@ describe('RDFileTransfer dedicated connection', () => {
         ft.enable();
 
         expect(() => ft.browseDir('')).not.toThrow();
-        await new Promise(resolve => setImmediate(resolve));
+        await new Promise(resolve => setTimeout(resolve, 10));
 
         expect(emit).toHaveBeenCalledWith('file_connect_error', { error: 'relay unavailable' });
     });
