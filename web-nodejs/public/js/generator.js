@@ -556,6 +556,7 @@
         
         if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.remove('hidden');
         loadRdgenPresets();
+        loadRdgenHistory(true);
         
         if (connectionDefaults) {
             const serverIPInput = document.getElementById('rdgen-serverIP');
@@ -949,6 +950,7 @@
                         if (nameInput) nameInput.value = '';
                         notify.success('Preset saved');
                         await loadRdgenPresets();
+                        loadRdgenSidebarPresets();
                     } else {
                         notify.error(data.error || 'Failed to save preset');
                     }
@@ -974,6 +976,7 @@
                     if (data.success) {
                         notify.success('Preset deleted');
                         await loadRdgenPresets();
+                        loadRdgenSidebarPresets();
                     }
                 } catch (err) {
                     notify.error(err.message || 'Failed to delete preset');
@@ -1073,7 +1076,14 @@
                                 `<span style="color:var(--color-text-muted);font-size:13px;">` +
                                 `The build page updates live when GitHub Actions completes.</span></div>`;
                         }, 2000);
+
+                        // Load history immediately & start polling
+                        setTimeout(() => loadRdgenHistory(true), 500);
+                        if (!rdgenHistoryPollTimer) {
+                            rdgenHistoryPollTimer = setInterval(() => loadRdgenHistory(true), 15000);
+                        }
                     }
+
 
                 } catch (e) {
                     alert(e.message);
@@ -1170,6 +1180,159 @@
         }
     }
 
+    // ── Build History & Progress ───────────────────────────────────────────────
+
+    let rdgenHistoryPollTimer = null;
+
+    function platformLabel(p) {
+        return { windows: 'Windows 64-bit', 'windows-x86': 'Windows 32-bit', linux: 'Linux', android: 'Android', macos: 'macOS' }[p] || p || 'Unknown';
+    }
+
+    function statusColor(s) {
+        if (!s) return '#888';
+        if (s === 'success') return '#22c55e';
+        if (['failure', 'cancelled', 'timed_out'].includes(s)) return '#ef4444';
+        return '#3b82f6'; // in progress / queued
+    }
+
+    function statusIcon(s) {
+        if (s === 'success') return 'check_circle';
+        if (['failure', 'cancelled', 'timed_out'].includes(s)) return 'error';
+        return 'pending';
+    }
+
+    const TERMINAL_STATUSES = new Set(['success', 'failure', 'cancelled', 'timed_out', 'skipped', 'action_required']);
+
+    function buildDownloadLinks(run) {
+        const fn = run.filename || 'rustdesk';
+        const uuid = run.uuid;
+        const p = (run.platform || '').toLowerCase();
+        const base = `/api/generator/rdgen/download/${uuid}/`;
+        const files = {
+            windows: [`${fn}.exe`, `${fn}.msi`],
+            'windows-x86': [`${fn}.exe`],
+            linux: [`${fn}-x86_64.deb`, `${fn}-x86_64.rpm`, `${fn}-x86_64.AppImage`, `${fn}-aarch64.deb`, `${fn}-aarch64.rpm`, `${fn}-aarch64.AppImage`],
+            android: [`${fn}-aarch64.apk`, `${fn}-x86_64.apk`, `${fn}-armv7.apk`],
+            macos: [`${fn}-x86_64.dmg`, `${fn}-aarch64.dmg`],
+        };
+        const list = files[p] || [];
+        if (!list.length) return '';
+        return `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+            ${list.map(f => `<a href="${escapeText(base + encodeURIComponent(f))}" class="btn btn-primary btn-sm" style="font-size:0.75rem;padding:4px 8px;" download>
+                <span class="material-icons" style="font-size:14px;">download</span> ${escapeText(f)}
+            </a>`).join('')}
+        </div>`;
+    }
+
+    function renderRdgenHistory(runs) {
+        const list = document.getElementById('rdgen-history-list');
+        if (!list) return;
+        if (!runs || !runs.length) {
+            list.innerHTML = '<p class="text-muted" style="text-align:center;margin:20px 0;">No builds yet. Click Generate to start a build.</p>';
+            return;
+        }
+        list.innerHTML = runs.map(run => {
+            const isTerminal = TERMINAL_STATUSES.has(run.status);
+            const isFailed = ['failure', 'cancelled', 'timed_out'].includes(run.status);
+            const isSuccess = run.status === 'success';
+            const color = statusColor(run.status);
+            const icon = statusIcon(run.status);
+            const spinnerHtml = !isTerminal ? `<span class="material-icons rdgen-spin" style="color:${color};font-size:20px;animation:rdgen-rotate 1s linear infinite;">sync</span>` : '';
+            const logLink = run.log_url ? `<a href="${escapeText(run.log_url)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:4px 8px;">
+                <span class="material-icons" style="font-size:14px;">open_in_new</span> GitHub Logs
+            </a>` : '';
+            const portalLink = `<a href="/rdgen/${escapeText(run.uuid)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:4px 8px;">
+                <span class="material-icons" style="font-size:14px;">launch</span> Build Portal
+            </a>`;
+            const downloads = isSuccess ? buildDownloadLinks(run) : '';
+            const progressBar = !isTerminal ? `<div style="width:100%;height:4px;background:#2a2a3a;border-radius:2px;margin-top:8px;overflow:hidden;">
+                <div style="height:4px;background:#3b82f6;border-radius:2px;width:60%;animation:rdgen-progress 2s ease-in-out infinite alternate;"></div>
+            </div>` : '';
+            return `<div class="rdgen-history-item" data-uuid="${escapeText(run.uuid)}" style="padding:14px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);margin-bottom:10px;background:var(--color-bg,#111120);">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                        ${!isTerminal ? spinnerHtml : `<span class="material-icons" style="color:${color};font-size:20px;">${icon}</span>`}
+                        <div style="min-width:0;">
+                            <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeText(run.filename || 'Build')} <span style="color:var(--color-text-muted,#888);font-weight:400;font-size:0.8rem;">${escapeText(platformLabel(run.platform))}</span></div>
+                            <div style="font-size:0.75rem;color:${color};margin-top:2px;">${escapeText(run.status || 'queued')}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        ${logLink}
+                        ${portalLink}
+                    </div>
+                </div>
+                ${progressBar}
+                ${downloads}
+                <div style="font-size:0.7rem;color:var(--color-text-muted,#888);margin-top:6px;">${escapeText(run.uuid)} · ${escapeText(run.created_at || '')}</div>
+            </div>`;
+        }).join('');
+    }
+
+    async function loadRdgenHistory(silent = false) {
+        if (!document.getElementById('rdgen-history-list')) return;
+        try {
+            const res = await fetch('/api/generator/rdgen/runs');
+            const data = await res.json();
+            if (!data.success) { if (!silent) notify.error(data.error || 'Failed to load history'); return; }
+            renderRdgenHistory(data.runs || []);
+            // If any active builds, keep polling
+            const hasActive = (data.runs || []).some(r => !TERMINAL_STATUSES.has(r.status));
+            if (hasActive && !rdgenHistoryPollTimer) {
+                rdgenHistoryPollTimer = setInterval(() => loadRdgenHistory(true), 15000);
+            } else if (!hasActive && rdgenHistoryPollTimer) {
+                clearInterval(rdgenHistoryPollTimer);
+                rdgenHistoryPollTimer = null;
+            }
+        } catch (e) {
+            if (!silent) notify.error(e.message);
+        }
+    }
+
+    // ── Sidebar: rdgen presets as list items ───────────────────────────────────
+
+    function renderRdgenSidebarItems(presets) {
+        const root = els['gen-bundle-list'];
+        if (!root) return;
+        // Remove existing rdgen sidebar items
+        root.querySelectorAll('.bundle-item[data-rdgen-preset]').forEach(el => el.remove());
+
+        (presets || []).forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'bundle-item';
+            item.dataset.rdgenPreset = p.id;
+            const isActive = state.productType === 'rdgen' && state.rdgenActivePresetId === String(p.id);
+            if (isActive) item.classList.add('active');
+            item.innerHTML = `
+                <div class="bundle-item-title">
+                    ${escapeText(p.name)}
+                    <span class="badge-product">RustDesk Generator</span>
+                </div>
+                <div class="bundle-item-meta">
+                    <span>${escapeText(p.created_at ? p.created_at.substring(0, 10) : '')}</span>
+                </div>
+            `;
+            item.addEventListener('click', () => {
+                // Switch to rdgen form and apply preset
+                document.querySelectorAll('.bundle-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                state.rdgenActivePresetId = String(p.id);
+                showRdgenForm();
+                try { applyRdgenConfig(JSON.parse(p.config_json)); } catch (_) {}
+                notify.info(`Loaded: ${p.name}`);
+            });
+            root.appendChild(item);
+        });
+    }
+
+    async function loadRdgenSidebarPresets() {
+        try {
+            const res = await fetch('/api/generator/rdgen/presets');
+            const data = await res.json();
+            if (data.success) renderRdgenSidebarItems(data.presets || []);
+        } catch (_) {}
+    }
+
     async function init() {
         cacheEls();
         if (!els['gen-bundle-list']) return;
@@ -1179,7 +1342,16 @@
         await loadConnectionDefaults();
         await loadPlatformLabels();
         loadToolchainStatus().catch(() => {});
-        loadBundles();
+        await loadBundles();
+        await loadRdgenSidebarPresets();
+
+        // Refresh sidebar presets whenever rdgen form opens or preset is saved
+        const origLoadRdgenPresets = loadRdgenPresets;
+        // Refresh history button
+        const btnRefresh = document.getElementById('btn-refresh-rdgen-history');
+        if (btnRefresh) {
+            btnRefresh.addEventListener('click', () => loadRdgenHistory(false));
+        }
     }
 
     if (document.readyState === 'loading') {
