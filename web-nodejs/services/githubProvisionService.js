@@ -219,6 +219,8 @@ class GithubProvisionService {
             process.env.REAL_CLIENT_PAYLOAD_PUBLIC_KEY = rsaPublicKeyBase64;
             process.env.REAL_CLIENT_GITHUB_WORKFLOW_COMMIT = workflowCommit;
             process.env.REAL_CLIENT_PUBLIC_BASE_URL = payloadOrigin;
+            process.env.REAL_CLIENT_GITHUB_WORKFLOWS = '{"linux":"betterdesk-linux.yml","windows":"betterdesk-windows.yml","android":"betterdesk-android.yml","macos":"betterdesk-macos.yml"}';
+            process.env.REAL_CLIENT_GITHUB_MATRIX = '{"windows-x64-exe":["1.4.9"],"windows-x64-msi":["1.4.9"],"linux-x64-deb":["1.4.9"],"linux-x64-appimage":["1.4.9"],"linux-x64-flatpak":["1.4.9"],"linux-arm64-deb":["1.4.9"],"linux-arm64-appimage":["1.4.9"],"linux-arm64-flatpak":["1.4.9"],"android-apk":["1.4.9"],"macos-x64-dmg":["1.4.9"],"macos-arm64-dmg":["1.4.9"]}';
             
         } catch (err) {
             throw new Error(`Failed to update local .env file: ${err.message}`);
