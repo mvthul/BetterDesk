@@ -222,9 +222,9 @@ router.get('/api/generator/rdgen/download/:uuid/:filename', (req, res) => {
     const uuid = req.params.uuid;
     const filename = req.params.filename;
 
-    // Safety check
-    if (!/^[0-9a-f-]+$/i.test(uuid)) return res.status(400).send('Invalid UUID');
-    if (filename.includes('..') || filename.includes('/')) return res.status(400).send('Invalid filename');
+    // Safety: uuid must be a hex UUID, filename must not path-traverse
+    if (!/^[0-9a-f-]{8,}$/i.test(uuid)) return res.status(400).send('Invalid UUID');
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) return res.status(400).send('Invalid filename');
 
     const filePath = path.join(os.tmpdir(), 'betterdesk-rdgen-builds', uuid, filename);
     if (fs.existsSync(filePath)) {
@@ -233,6 +233,7 @@ router.get('/api/generator/rdgen/download/:uuid/:filename', (req, res) => {
         res.status(404).send('Not found');
     }
 });
+
 
 // ── Presets ───────────────────────────────────────────────────────────────────
 

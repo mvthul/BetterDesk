@@ -1,264 +1,359 @@
 <%
-// Public rdgen download portal — no auth required. UUID itself is the access token.
+// rdgen build status / download portal — faithful 1:1 port of upstream waiting.html / generated.html / failure.html
+// No auth required — UUID is the access token.
 const run = rdgenRun;
-const statusMap = {
-    success:     'ready',
-    failure:     'failed',
-    cancelled:   'failed',
-    timed_out:   'failed',
-    skipped:     'failed',
-    in_progress: 'building',
-    queued:      'building',
-    starting:    'building',
-};
-const portalStatus = statusMap[run.status] || 'building';
+const filename = run.filename || 'rustdesk';
+const platform = run.platform || 'windows';
+const uuid = run.uuid;
+const logUrl = run.log_url ||
+    (run.github_run_id && process.env.GHUSER && process.env.REPONAME
+        ? `https://github.com/${process.env.GHUSER}/${process.env.REPONAME}/actions/runs/${run.github_run_id}`
+        : '');
 
-const platformLabels = {
-    'windows':     'Windows portable (.exe)',
-    'windows-x86': 'Windows portable 32-bit (.exe)',
-    'windows-msi': 'Windows installed (.msi)',
-    'linux':       'Linux universal portable (.tar.gz)',
-    'linux-app':   'Linux portable (AppImage)',
-    'linux-deb':   'Linux Debian/Ubuntu (.deb)',
-    'linux-rpm':   'Linux Fedora/RHEL (.rpm)',
-    'android':     'Android (.apk)',
-    'macos':       'macOS (.dmg)',
-};
-const platformArch = {
-    'windows': 'X64', 'windows-x86': 'X86', 'windows-msi': 'X64',
-    'linux': 'X64', 'linux-app': 'X64', 'linux-deb': 'X64', 'linux-rpm': 'X64',
-    'android': 'ARM', 'macos': 'Universal'
-};
-const label = platformLabels[run.platform] || run.platform;
-const arch = platformArch[run.platform] || '';
-const appName = run.appname || 'RustDesk';
-const filename = run.filename || appName.toLowerCase() + '.exe';
-
-function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function platformIcon(platform) {
-    if (platform === 'windows' || platform === 'windows-x86' || platform === 'windows-msi') {
-        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M2 5.4 9.6 4.3v7.4H2zM10.6 4.1 22 2.5v9.2H10.6zM2 12.7h7.6v7.4L2 18.9zM10.6 12.7H22v9.2l-11.4-1.6z"/></svg>`;
-    }
-    if (platform === 'android') {
-        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84-1.3-1.3c-.2-.2-.51-.2-.71 0-.19.2-.19.51 0 .71l1.42 1.42A5.96 5.96 0 0 0 12 2c-1.5 0-2.88.55-3.94 1.44l1.42-1.42a.5.5 0 0 0 0-.71.5.5 0 0 0-.71 0l-1.3 1.3A5.96 5.96 0 0 0 6 7h12c0-1.79-.79-3.4-2.47-4.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z"/></svg>`;
-    }
-    if (platform === 'macos') {
-        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>`;
-    }
-    if (platform === 'linux-deb') {
-        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">DEB</text></svg>`;
-    }
-    if (platform === 'linux-rpm') {
-        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">RPM</text></svg>`;
-    }
-    return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M12 2 4 6v6c0 5 3.5 9.4 8 10 4.5-.6 8-5 8-10V6z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`;
-}
+const terminalStatuses = ['success', 'failure', 'cancelled', 'timed_out', 'skipped', 'action_required'];
+const failStatuses     = ['failure', 'cancelled', 'timed_out', 'skipped', 'action_required'];
+const isSuccess = run.status === 'success';
+const isFailed  = failStatuses.includes(run.status);
+const isWaiting = !isSuccess && !isFailed;
 %><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= esc(appName) %> — Download Custom RustDesk Client</title>
-    <meta name="description" content="Download your custom <%= esc(appName) %> RustDesk client, built and powered by BetterDesk.">
-    <link rel="stylesheet" href="/css/agent-download.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <title id="pageTitle">
+        <%= isSuccess ? 'Build Generated Successfully' : isFailed ? 'Build Failure' : 'Generating Build' %>
+    </title>
     <style>
-        :root { --brand-primary: #3b82f6; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        .portal-logo-rdgen {
-            width: 96px; height: 96px;
-            margin: 0 auto 18px;
-            border-radius: 22px;
-            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3);
-            font-size: 44px;
-        }
-        .rdgen-badge {
-            display: inline-block;
-            background: rgba(59,130,246,0.15);
-            border: 1px solid rgba(59,130,246,0.3);
-            border-radius: 20px;
-            padding: 4px 14px;
-            font-size: 12px;
-            color: #93c5fd;
-            font-weight: 500;
-            margin-top: 8px;
-            letter-spacing: 0.03em;
-        }
-        .btn.btn-gh-log {
-            display: inline-block;
-            background: rgba(255,255,255,0.06);
-            color: #94a3b8;
-            padding: 8px 18px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            margin-top: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: background 0.15s;
-        }
-        .btn.btn-gh-log:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
-        .status-badge.status-pending {
-            display: inline-flex;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 8px;
-            background: rgba(234,179,8,0.12);
-            border: 1px solid rgba(234,179,8,0.3);
-            border-radius: 8px;
-            padding: 10px 18px;
-            color: #fcd34d;
-            font-size: 14px;
-            font-weight: 500;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            text-align: center;
+            background: <% if (isFailed) { %>linear-gradient(135deg, #ffcfcf 0%, #e2c3c3 100%)<% } else { %>linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)<% } %>;
         }
-        .status-badge.status-failed {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(239,68,68,0.12);
-            border: 1px solid rgba(239,68,68,0.3);
-            border-radius: 8px;
-            padding: 10px 18px;
-            color: #fca5a5;
-            font-size: 14px;
-            font-weight: 500;
+
+        /* ── Platform logos ─────────────────────────────────────────────────── */
+        .platform-logo {
+            width: 150px;
+            height: 150px;
+            margin-bottom: 30px;
+            display: none;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.2));
+            transition: transform 0.3s ease;
         }
-        .spinner {
-            width: 16px; height: 16px;
-            border: 2px solid rgba(252,211,77,0.2);
-            border-top-color: #fcd34d;
+        .platform-logo:hover { transform: scale(1.1); }
+
+        /* ── Waiting state ──────────────────────────────────────────────────── */
+        .loading-text  { color: #333; font-weight: 600; margin-bottom: 20px; }
+        .status-text   { color: #666; font-size: 0.9em; }
+        .macos-note    { color: #666; font-size: 0.9em; margin-top: 15px; background: rgba(255,255,255,0.7); padding: 10px; border-radius: 8px; }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            flex-shrink: 0;
+            width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .btn.btn-primary {
-            display: inline-block;
-            background: linear-gradient(135deg, #2563eb, #3b82f6);
-            color: #fff;
-            padding: 12px 28px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 15px;
-            box-shadow: 0 4px 14px rgba(59,130,246,0.35);
-            transition: transform 0.15s, box-shadow 0.15s;
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .progress-bar { width: 300px; height: 10px; background-color: #e0e0e0; border-radius: 5px; overflow: hidden; margin: 20px auto; }
+        .progress-bar-fill { width: 0%; height: 100%; background-color: #3498db; transition: width 0.5s ease-in-out; }
+        .log-container {
+            margin-top: 30px; padding: 15px;
+            background: rgba(255,255,255,0.5); border-radius: 12px;
+            font-size: 0.85em; max-width: 320px; margin-left: auto; margin-right: auto;
+            border: 1px solid rgba(0,0,0,0.05);
         }
-        .btn.btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(59,130,246,0.45);
+        .log-link {
+            color: #3498db; text-decoration: none; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 5px;
         }
-        .portal-card { transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
-        .portal-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+        .log-link:hover { text-decoration: underline; }
+
+        /* ── Success state ──────────────────────────────────────────────────── */
+        .success-text   { color: #333; font-weight: 600; margin-bottom: 20px; }
+        .download-section {
+            background: rgba(255,255,255,0.8);
+            padding: 20px; border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px;
+        }
+        .download-link {
+            display: block; margin: 10px 0; padding: 10px;
+            background-color: #3498db; color: white;
+            text-decoration: none; border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .download-link:hover { background-color: #2980b9; }
+        .platform-note { color: #666; font-size: 0.9em; margin-top: 15px; background: rgba(255,255,255,0.7); padding: 10px; border-radius: 8px; }
+
+        /* ── Failure state ──────────────────────────────────────────────────── */
+        .error-container {
+            background: white; border-radius: 12px; padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; width: 90%;
+        }
+        .error-header   { color: #c0392b; font-weight: 700; margin-bottom: 10px; font-size: 1.5em; }
+        .warning-box {
+            background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404;
+            padding: 15px; border-radius: 8px; margin-bottom: 20px;
+            font-size: 0.9em; text-align: left;
+        }
+        .download-section-fail {
+            background: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px dashed #ccc;
+        }
+        .download-link-fail {
+            display: block; margin: 10px 0; padding: 12px;
+            background-color: #34495e; color: white;
+            text-decoration: none; border-radius: 5px; transition: opacity 0.3s ease;
+        }
+        .download-link-fail:hover { opacity: 0.8; }
     </style>
 </head>
 <body>
-    <main class="portal">
-        <header class="portal-header">
-            <div class="portal-logo-rdgen">🖥️</div>
-            <h1><%= esc(appName) %></h1>
-            <div><span class="rdgen-badge">Custom RustDesk Client</span></div>
-        </header>
 
-        <section class="portal-intro">
-            <h2>Choose your platform</h2>
-            <p>Download the custom-built client for your operating system.</p>
-        </section>
+    <!-- Platform logo SVGs (shown/hidden by JS) -->
+    <svg id="windowsLogo" class="platform-logo" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="windowsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#00A4EF;stop-opacity:1"/>
+                <stop offset="100%" style="stop-color:#0078D7;stop-opacity:1"/>
+            </linearGradient>
+        </defs>
+        <rect width="256" height="256" rx="50" ry="50" fill="url(#windowsGradient)"/>
+        <path d="M60 60 L196 60 L196 196 L60 196 Z" fill="white" opacity="0.2"/>
+        <path d="M128 60 L196 60 L196 128 Z" fill="white" opacity="0.1"/>
+        <text x="128" y="200" font-family="Arial" font-size="50" font-weight="bold" text-anchor="middle" fill="white">Win</text>
+    </svg>
 
-        <section class="portal-grid" id="rdgen-portal-grid">
-            <article class="portal-card"
-                     data-uuid="<%= esc(run.uuid) %>"
-                     data-platform="<%= esc(run.platform) %>"
-                     data-status="<%= esc(portalStatus) %>">
-                <div class="card-icon">
-                    <%- platformIcon(run.platform) %>
-                </div>
-                <h3><%= esc(label) %></h3>
-                <p class="card-arch"><%= esc(arch) %></p>
-                <div class="card-status" data-status-slot>
-                    <% if (portalStatus === 'ready') { %>
-                        <a class="btn btn-primary"
-                           id="rdgen-download-btn"
-                           href="/api/generator/rdgen/download/<%= esc(run.uuid) %>/<%= esc(filename) %>">
-                            ⬇ Download
-                        </a>
-                    <% } else if (portalStatus === 'failed') { %>
-                        <span class="status-badge status-failed">✕ Build failed</span>
-                    <% } else { %>
-                        <span class="status-badge status-pending">
-                            <span class="spinner"></span>
-                            Building…
-                        </span>
-                    <% } %>
-                </div>
-                <% if (run.log_url || (run.github_run_id && process.env.GHUSER && process.env.REPONAME)) { %>
-                    <%
-                        const logUrl = run.log_url ||
-                            `https://github.com/${process.env.GHUSER}/${process.env.REPONAME}/actions/runs/${run.github_run_id}`;
-                    %>
-                    <div style="margin-top:12px">
-                        <a class="btn btn-gh-log" href="<%= esc(logUrl) %>" target="_blank" rel="noopener">
-                            View GitHub Actions log ↗
-                        </a>
-                    </div>
-                <% } %>
-            </article>
-        </section>
+    <svg id="macosLogo" class="platform-logo" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="macosGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#A2AAAD;stop-opacity:1"/>
+                <stop offset="100%" style="stop-color:#4A4A4A;stop-opacity:1"/>
+            </linearGradient>
+        </defs>
+        <rect width="256" height="256" rx="50" ry="50" fill="url(#macosGradient)"/>
+        <text x="128" y="200" font-family="Arial" font-size="50" font-weight="bold" text-anchor="middle" fill="white">Mac</text>
+    </svg>
 
-        <footer class="portal-footer">
-            <p>Powered by <strong>BetterDesk</strong></p>
-        </footer>
-    </main>
+    <svg id="linuxLogo" class="platform-logo" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="linuxGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#FFA500;stop-opacity:1"/>
+                <stop offset="100%" style="stop-color:#FF4500;stop-opacity:1"/>
+            </linearGradient>
+        </defs>
+        <rect width="256" height="256" rx="50" ry="50" fill="url(#linuxGradient)"/>
+        <text x="128" y="200" font-family="Arial" font-size="50" font-weight="bold" text-anchor="middle" fill="white">Linux</text>
+    </svg>
+
+    <svg id="androidLogo" class="platform-logo" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="androidGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#A4C639;stop-opacity:1"/>
+                <stop offset="100%" style="stop-color:#78C257;stop-opacity:1"/>
+            </linearGradient>
+        </defs>
+        <rect width="256" height="256" rx="50" ry="50" fill="url(#androidGradient)"/>
+        <text x="128" y="200" font-family="Arial" font-size="50" font-weight="bold" text-anchor="middle" fill="white">Android</text>
+    </svg>
+
+    <!-- ── WAITING ─────────────────────────────────────────────────────────── -->
+    <% if (isWaiting) { %>
+    <div id="waitingView">
+        <h2 class="loading-text">Build in Progress</h2>
+        <div class="loading-spinner"></div>
+        <div class="progress-bar">
+            <div id="progressBarFill" class="progress-bar-fill"></div>
+        </div>
+        <p class="status-text">This can take 30–45 minutes. You can leave this page open or come back later.</p>
+        <p class="status-text">Status: <span id="statusText"><%= run.status || 'queued' %></span></p>
+
+        <% if (logUrl) { %>
+        <div class="log-container">
+            <p style="margin: 0 0 8px 0; color: #888;">Technical View</p>
+            <a href="<%= logUrl %>" target="_blank" class="log-link">
+                View GitHub Action Logs
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+        </div>
+        <% } %>
+    </div>
+
+    <div id="macosNote" class="macos-note" style="display:none">
+        Note for macOS users: Generating an executable may require additional steps or permissions.
+    </div>
+    <% } %>
+
+    <!-- ── SUCCESS ─────────────────────────────────────────────────────────── -->
+    <% if (isSuccess) { %>
+    <div id="successView">
+        <h2 class="success-text">Build Generated Successfully</h2>
+        <div class="download-section">
+            <% if (platform === 'windows') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>.exe" class="download-link">Download <%= filename %>.exe</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>.msi" class="download-link">Download <%= filename %>.msi</a>
+            <% } else if (platform === 'windows-x86') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>.exe" class="download-link">Download <%= filename %>.exe</a>
+            <% } else if (platform === 'linux') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.deb" class="download-link">Download <%= filename %>-x86_64.deb</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.rpm" class="download-link">Download <%= filename %>-x86_64.rpm</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-suse-x86_64.rpm" class="download-link">Download <%= filename %>-suse-x86_64.rpm</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.pkg.tar.zst" class="download-link">Download <%= filename %>-x86_64.pkg.tar.zst</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.deb" class="download-link">Download <%= filename %>-aarch64.deb</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.rpm" class="download-link">Download <%= filename %>-aarch64.rpm</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-suse-aarch64.rpm" class="download-link">Download <%= filename %>-suse-aarch64.rpm</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.pkg.tar.zst" class="download-link">Download <%= filename %>-aarch64.pkg.tar.zst</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.AppImage" class="download-link">Download <%= filename %>-x86_64.AppImage</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.AppImage" class="download-link">Download <%= filename %>-aarch64.AppImage</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.flatpak" class="download-link">Download <%= filename %>-x86_64.flatpak</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.flatpak" class="download-link">Download <%= filename %>-aarch64.flatpak</a>
+            <% } else if (platform === 'android') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.apk" class="download-link">Download <%= filename %>-aarch64.apk</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.apk" class="download-link">Download <%= filename %>-x86_64.apk</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-armv7.apk" class="download-link">Download <%= filename %>-armv7.apk</a>
+            <% } else if (platform === 'macos') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.dmg" class="download-link">Download <%= filename %>-x86_64.dmg</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.dmg" class="download-link">Download <%= filename %>-aarch64.dmg</a>
+            <% } else { %>
+                <p>Error: No file generated for platform '<%= platform %>'.</p>
+            <% } %>
+        </div>
+    </div>
+    <div id="platformNote" class="platform-note" style="display:none"></div>
+    <% } %>
+
+    <!-- ── FAILURE ─────────────────────────────────────────────────────────── -->
+    <% if (isFailed) { %>
+    <div class="error-container">
+        <h2 class="error-header">Workflow Interrupted</h2>
+        <div class="warning-box">
+            <strong>Warning:</strong> The build process did not complete successfully. Some files may be missing. You can attempt to download the available files below.
+        </div>
+        <div class="download-section-fail">
+            <% if (platform === 'windows') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>.exe" class="download-link-fail">Download <%= filename %>.exe</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>.msi" class="download-link-fail">Download <%= filename %>.msi</a>
+            <% } else if (platform === 'windows-x86') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>.exe" class="download-link-fail">Download <%= filename %>.exe</a>
+            <% } else if (platform === 'linux') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.deb" class="download-link-fail">Download <%= filename %>-x86_64.deb</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.rpm" class="download-link-fail">Download <%= filename %>-x86_64.rpm</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.AppImage" class="download-link-fail">Download <%= filename %>-x86_64.AppImage</a>
+            <% } else if (platform === 'android') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.apk" class="download-link-fail">Download <%= filename %>-aarch64.apk</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.apk" class="download-link-fail">Download <%= filename %>-x86_64.apk</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-armv7.apk" class="download-link-fail">Download <%= filename %>-armv7.apk</a>
+            <% } else if (platform === 'macos') { %>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-x86_64.dmg" class="download-link-fail">Download <%= filename %>-x86_64.dmg</a>
+                <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>-aarch64.dmg" class="download-link-fail">Download <%= filename %>-aarch64.dmg</a>
+            <% } else { %>
+                <p>No files available.</p>
+            <% } %>
+        </div>
+        <% if (logUrl) { %>
+        <a href="<%= logUrl %>" target="_blank" class="log-link" style="display:inline-block;margin-top:15px;color:#3498db;text-decoration:none;font-size:0.85em;">
+            Check GitHub Logs for error details ↗
+        </a>
+        <% } %>
+        <div id="platformNote" class="platform-note" style="display:none;margin-top:15px;color:#666;font-size:0.85em;"></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <a href="/generator" style="font-size: 0.9em; color: #666; text-decoration: none;">← Return to Form</a>
+    </div>
+    <% } %>
 
     <script>
     (function () {
-        const uuid = <%- JSON.stringify(run.uuid) %>;
-        const dlFilename = <%- JSON.stringify(filename) %>;
+        const platform = <%- JSON.stringify(platform) %>;
+        const uuid     = <%- JSON.stringify(uuid) %>;
+        const filename = <%- JSON.stringify(filename) %>;
+        const isWaiting = <%- JSON.stringify(isWaiting) %>;
 
-        function updateCard(portalStatus) {
-            const slot = document.querySelector('[data-status-slot]');
-            const card = document.querySelector('.portal-card');
-            if (!slot) return;
-            if (portalStatus === 'ready') {
-                slot.innerHTML = `<a class="btn btn-primary" id="rdgen-download-btn" href="/api/generator/rdgen/download/${uuid}/${encodeURIComponent(dlFilename)}">⬇ Download</a>`;
-                if (card) card.dataset.status = 'ready';
-            } else if (portalStatus === 'failed') {
-                slot.innerHTML = `<span class="status-badge status-failed">✕ Build failed</span>`;
-                if (card) card.dataset.status = 'failed';
-                if (timer) { clearInterval(timer); timer = null; }
+        // ── Platform logo & title ──────────────────────────────────────────
+        function updatePlatformUI() {
+            const logos = {
+                'windows':     document.getElementById('windowsLogo'),
+                'windows-x86': document.getElementById('windowsLogo'),
+                'macos':       document.getElementById('macosLogo'),
+                'linux':       document.getElementById('linuxLogo'),
+                'android':     document.getElementById('androidLogo'),
+            };
+            Object.values(logos).forEach(l => { if (l) l.style.display = 'none'; });
+
+            const p = platform.toLowerCase();
+            const logo = logos[p];
+            if (logo) logo.style.display = 'block';
+
+            const titleEl = document.getElementById('pageTitle');
+            const platformNote = document.getElementById('platformNote');
+
+            if (p === 'macos') {
+                if (titleEl && isWaiting) titleEl.textContent = 'Generating MacOS Build';
+                else if (titleEl) titleEl.textContent = 'MacOS Build Generated';
+                const note = document.getElementById('macosNote');
+                if (note) note.style.display = 'block';
+                if (platformNote) {
+                    platformNote.textContent = 'Note: For macOS, you may need to adjust security settings to run the application.';
+                    platformNote.style.display = 'block';
+                }
+            } else if (p === 'windows' || p === 'windows-x86') {
+                if (titleEl && isWaiting) titleEl.textContent = 'Generating Windows Build';
+                else if (titleEl) titleEl.textContent = 'Windows Build Generated';
+                if (platformNote) {
+                    platformNote.textContent = 'Note: You might need to disable SmartScreen or adjust Windows security settings.';
+                    platformNote.style.display = 'block';
+                }
+            } else if (p === 'linux') {
+                if (titleEl && isWaiting) titleEl.textContent = 'Generating Linux Build';
+                else if (titleEl) titleEl.textContent = 'Linux Build Generated';
+                if (platformNote) {
+                    platformNote.textContent = 'Note: Ensure you have the necessary dependencies installed.';
+                    platformNote.style.display = 'block';
+                }
+            } else if (p === 'android') {
+                if (titleEl && isWaiting) titleEl.textContent = 'Generating Android Build';
+                else if (titleEl) titleEl.textContent = 'Android Build Generated';
+                if (platformNote) {
+                    platformNote.textContent = 'Note: You may need to enable "Unknown Sources" in device settings.';
+                    platformNote.style.display = 'block';
+                }
             }
         }
 
-        let timer = null;
+        updatePlatformUI();
 
-        async function poll() {
-            try {
-                const r = await fetch(`/api/generator/rdgen/status/${uuid}`, { credentials: 'include' });
-                if (!r.ok) return;
-                const j = await r.json();
-                if (!j || !j.found) return;
+        // ── Waiting: status poll & auto-redirect (matches upstream 30s logic) ─
+        if (isWaiting) {
+            const TERMINAL = ['success', 'failure', 'cancelled', 'timed_out', 'skipped', 'action_required'];
+            let pollTimer = null;
 
-                const status = j.status;
-                const portal = (status === 'success') ? 'ready'
-                    : (status === 'failure' || status === 'cancelled' || status === 'timed_out' || status === 'skipped') ? 'failed'
-                    : 'building';
+            async function poll() {
+                try {
+                    const r = await fetch(`/api/generator/rdgen/status/${uuid}`, { credentials: 'include' });
+                    if (!r.ok) return;
+                    const j = await r.json();
+                    if (!j || !j.found) return;
 
-                updateCard(portal);
-                if (portal === 'ready' || portal === 'failed') {
-                    if (timer) { clearInterval(timer); timer = null; }
-                }
-            } catch (_) { /* network blip — keep polling */ }
-        }
+                    const status = j.status;
+                    const statusEl = document.getElementById('statusText');
+                    if (statusEl) statusEl.textContent = status;
 
-        const hasPending = !!document.querySelector('[data-status="building"]');
-        if (hasPending) {
-            timer = setInterval(poll, 8000);
+                    if (TERMINAL.includes(status)) {
+                        // Redirect to this same URL — server will now render the correct state
+                        clearInterval(pollTimer);
+                        window.location.reload();
+                    }
+                } catch (_) {}
+            }
+
+            // Poll every 30 seconds exactly as upstream does (30s timeout before redirect)
+            pollTimer = setInterval(poll, 30000);
+
+            // Also run once quickly to pick up fast completions
+            setTimeout(poll, 5000);
         }
     })();
     </script>
