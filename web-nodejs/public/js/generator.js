@@ -868,12 +868,161 @@
         }
         
         if (els['rdgen-generate-btn']) {
-            els['rdgen-generate-btn'].addEventListener('click', () => {
-                if (els['rdgen-success-msg']) {
-                    els['rdgen-success-msg'].style.display = 'block';
-                    setTimeout(() => {
-                        els['rdgen-success-msg'].style.display = 'none';
-                    }, 3000);
+            els['rdgen-generate-btn'].addEventListener('click', async () => {
+                const btn = els['rdgen-generate-btn'];
+                btn.disabled = true;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="material-icons rotating">sync</span> Generating...';
+
+                try {
+                    const fd = new FormData();
+                    const inputs = els['gen-rdgen-form'].querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => {
+                        let name = input.name;
+                        if (!name && input.id && input.id.startsWith('rdgen-')) {
+                            name = input.id.replace('rdgen-', '');
+                        }
+                        if (!name) return;
+
+                        if (input.type === 'file') {
+                            if (input.files[0]) fd.append(input.id, input.files[0]); // name must match exactly (e.g. rdgen-iconfile)
+                        } else if (input.type === 'checkbox') {
+                            fd.append(name, input.checked);
+                        } else if (input.type === 'radio') {
+                            if (input.checked) fd.append(name, input.value);
+                        } else {
+                            fd.append(name, input.value);
+                        }
+                    });
+
+                    const res = await fetch('/api/generator/rdgen/generate', {
+                        method: 'POST',
+                        headers: { 'X-CSRF-Token': csrf() },
+                        body: fd
+                    });
+                    const data = await res.json();
+                    if (!data.success) {
+                        throw new Error(data.error || 'Failed to start generator');
+                    }
+
+                    if (els['rdgen-success-msg']) {
+                        els['rdgen-success-msg'].style.display = 'block';
+                        els['rdgen-success-msg'].innerHTML = `Build started!<br>Waiting for completion...`;
+                        
+                        // Start polling
+                        const poll = setInterval(async () => {
+                            try {
+                                const sRes = await fetch('/api/generator/rdgen/status/' + data.uuid);
+                                const sData = await sRes.json();
+                                if (sData.found) {
+                                    if (sData.status === 'success') {
+                                        clearInterval(poll);
+                                        btn.disabled = false;
+                                        btn.innerHTML = originalText;
+                                        els['rdgen-success-msg'].innerHTML = `Build successful! <a href="/api/generator/rdgen/download/${data.uuid}/${data.filename}.exe" class="btn btn-sm btn-primary" style="margin-left:10px" target="_blank">Download .exe</a> <a href="/api/generator/rdgen/download/${data.uuid}/${data.filename}.msi" class="btn btn-sm btn-primary" style="margin-left:5px" target="_blank">Download .msi</a>`;
+                                    } else if (sData.status === 'failure' || sData.status === 'cancelled' || sData.status === 'timed_out' || sData.status === 'failed') {
+                                        clearInterval(poll);
+                                        btn.disabled = false;
+                                        btn.innerHTML = originalText;
+                                        els['rdgen-success-msg'].style.color = 'var(--color-danger)';
+                                        els['rdgen-success-msg'].innerHTML = `Build failed: ${sData.status}`;
+                                    } else {
+                                        const logHtml = sData.github_log_url ? ` <a href="${sData.github_log_url}" target="_blank">View GitHub Log</a>` : '';
+                                        els['rdgen-success-msg'].innerHTML = `Build in progress... (${sData.status})${logHtml}`;
+                                    }
+                                }
+                            } catch (err) {}
+                        }, 5000);
+                    }
+                } catch (e) {
+                    alert(e.message);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            });
+        }
+    }
+
+    function bindAutoProvisionEvents() {
+        const btnBanner = document.getElementById('btn-auto-provision-banner');
+        const modal = document.getElementById('github-provision-modal');
+        const btnSubmitModal = document.getElementById('btn-submit-github-provision');
+        const patInput = document.getElementById('github-pat-input');
+        const repoInput = document.getElementById('github-repo-name');
+        const statusDiv = document.getElementById('github-provision-status');
+        const statusText = document.getElementById('github-provision-status-text');
+        const labelStatus = document.getElementById('github-provision-status-label');
+
+        if (btnBanner) {
+            btnBanner.addEventListener('click', async () => {
+                try {
+                    const res = await fetch('/api/generator/rdgen/settings');
+                    const settings = await res.json();
+
+                    if (settings.success && settings.GHBEARER && settings.GHBEARER === '********') {
+                        btnBanner.disabled = true;
+                        btnBanner.innerHTML = '<span class="material-icons rotating">sync</span> Provisioning...';
+                        if (labelStatus) labelStatus.textContent = '⚡ Provisioning repo & GitHub Actions secrets...';
+
+                        const pRes = await fetch('/api/generator/rdgen/provision', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf() },
+                            body: JSON.stringify({})
+                        });
+                        const pData = await pRes.json();
+                        btnBanner.disabled = false;
+                        btnBanner.innerHTML = '<span class="material-icons">check_circle</span> Re-provision / Sync';
+
+                        if (pData.success) {
+                            if (labelStatus) labelStatus.textContent = `✓ Repository configured: ${pData.ghUser}/${pData.repoName} (${pData.branch}). Actions & Secrets active.`;
+                        } else {
+                            if (labelStatus) labelStatus.textContent = `✗ Provisioning failed: ${pData.error}`;
+                            alert('Provisioning failed: ' + pData.error);
+                        }
+                    } else {
+                        if (modal) modal.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    alert('Provisioning error: ' + e.message);
+                }
+            });
+        }
+
+        if (btnSubmitModal) {
+            btnSubmitModal.addEventListener('click', async () => {
+                const pat = patInput ? patInput.value.trim() : '';
+                const repoName = repoInput ? repoInput.value.trim() : 'rdgen';
+
+                if (!pat) {
+                    alert('Please enter a GitHub Personal Access Token (PAT)');
+                    return;
+                }
+
+                if (statusDiv) statusDiv.style.display = 'block';
+                if (statusText) statusText.textContent = 'Provisioning repository & configuring secrets...';
+                btnSubmitModal.disabled = true;
+
+                try {
+                    const pRes = await fetch('/api/generator/rdgen/provision', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf() },
+                        body: JSON.stringify({ pat, repoName })
+                    });
+                    const pData = await pRes.json();
+                    btnSubmitModal.disabled = false;
+
+                    if (pData.success) {
+                        if (modal) modal.classList.add('hidden');
+                        if (statusDiv) statusDiv.style.display = 'none';
+                        if (labelStatus) labelStatus.textContent = `✓ Repository configured: ${pData.ghUser}/${pData.repoName} (${pData.branch}). Actions & Secrets active.`;
+                        if (btnBanner) btnBanner.innerHTML = '<span class="material-icons">check_circle</span> Re-provision / Sync';
+                        alert(`GitHub Repository successfully provisioned as ${pData.ghUser}/${pData.repoName}!`);
+                    } else {
+                        if (statusText) statusText.textContent = 'Failed: ' + pData.error;
+                    }
+                } catch (e) {
+                    btnSubmitModal.disabled = false;
+                    if (statusText) statusText.textContent = 'Error: ' + e.message;
                 }
             });
         }
@@ -884,6 +1033,7 @@
         if (!els['gen-bundle-list']) return;
         bindEvents();
         bindRdgenEvents();
+        bindAutoProvisionEvents();
         await loadConnectionDefaults();
         await loadPlatformLabels();
         loadToolchainStatus().catch(() => {});

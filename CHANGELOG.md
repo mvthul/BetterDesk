@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Native rdgen Client Generator Integration & 1-Click Auto-Provisioning:** native Express routes and services for building custom RustDesk clients via GitHub Actions workflows, supporting 1-click GitHub repository forking, workflow enabling, and sodium secret encryption across all 26 supported locales.
 - **Device connected-time reports** — persist server-observed presence intervals in SQLite or PostgreSQL, show the current connection duration on Devices, provide date and “Connected only” filters with per-PC/day totals, and export selected devices as a UTF-8 CSV. Presence reports measure device connectivity, not keyboard or mouse activity.
 
 ### Fixed

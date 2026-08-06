@@ -994,7 +994,12 @@
         "rdgen_overrideManual": "Override settings",
         "rdgen_generate_btn": "Generate Custom Client",
         "rdgen_fix_delay": "Fix connection delay when using third-party API",
-        "rdgen_mock_success": "Configuration generated successfully!"
+        "rdgen_mock_success": "Configuration generated successfully!",
+        "auto_provision_title": "GitHub Repository Auto-Provisioning",
+        "auto_provision_desc": "Automatically fork the rdgen repository, enable GitHub Actions workflows, and configure secret keys on your GitHub account.",
+        "auto_provision_pat_label": "GitHub Personal Access Token (PAT)",
+        "auto_provision_repo_label": "GitHub Build Repository Name",
+        "auto_provision_start": "Start Auto-Provisioning"
     },
     "server": {
         "port": "Puerto",

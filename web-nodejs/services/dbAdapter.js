@@ -1052,6 +1052,18 @@ function createSqliteAdapter(config) {
             );
             CREATE INDEX IF NOT EXISTS idx_agent_bundle_builds_hash ON agent_bundle_builds (branding_hash);
             CREATE INDEX IF NOT EXISTS idx_agent_bundle_builds_status ON agent_bundle_builds (status);
+
+            CREATE TABLE IF NOT EXISTS rdgen_runs (
+                uuid TEXT PRIMARY KEY,
+                github_run_id TEXT,
+                platform TEXT,
+                filename TEXT,
+                appname TEXT,
+                status TEXT,
+                log_url TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
         `);
         migrateAgentBundleSlugsSqlite(db);
         migrateAgentBundleProductTypesSqlite(db);
@@ -3690,6 +3702,47 @@ function createSqliteAdapter(config) {
             return this.getAgentBundleBuild({ brandingHash, platform, arch, format });
         },
 
+        // ---- rdgen_runs ----
+
+        async createRdgenRun(data) {
+            const db = openAuth();
+            db.prepare(`
+                INSERT INTO rdgen_runs (uuid, github_run_id, platform, filename, appname, status, log_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).run(
+                data.uuid,
+                data.github_run_id || null,
+                data.platform || '',
+                data.filename || '',
+                data.appname || '',
+                data.status || 'starting',
+                data.log_url || null
+            );
+            return this.getRdgenRun(data.uuid);
+        },
+
+        async getRdgenRun(uuid) {
+            const db = openAuth();
+            const row = db.prepare('SELECT * FROM rdgen_runs WHERE uuid = ?').get(uuid);
+            return row || null;
+        },
+
+        async updateRdgenRun(uuid, updates) {
+            const db = openAuth();
+            const setClauses = [];
+            const values = [];
+            for (const [k, v] of Object.entries(updates)) {
+                setClauses.push(`${k} = ?`);
+                values.push(v);
+            }
+            if (setClauses.length === 0) return this.getRdgenRun(uuid);
+            setClauses.push("updated_at = datetime('now')");
+            values.push(uuid);
+            
+            db.prepare(`UPDATE rdgen_runs SET ${setClauses.join(', ')} WHERE uuid = ?`).run(...values);
+            return this.getRdgenRun(uuid);
+        },
+
         // ---- Integration Housekeeping ----
 
         async runIntegrationHousekeeping() {
@@ -4317,6 +4370,19 @@ function createPostgresAdapter() {
         `);
         await q('CREATE INDEX IF NOT EXISTS idx_agent_bundle_builds_hash ON agent_bundle_builds (branding_hash)');
         await q('CREATE INDEX IF NOT EXISTS idx_agent_bundle_builds_status ON agent_bundle_builds (status)');
+        await q(`
+            CREATE TABLE IF NOT EXISTS rdgen_runs (
+                uuid TEXT PRIMARY KEY,
+                github_run_id TEXT,
+                platform TEXT,
+                filename TEXT,
+                appname TEXT,
+                status TEXT,
+                log_url TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `);
 
         // -- RustDesk Client Integration tables --
         await q(`
@@ -7039,6 +7105,46 @@ function createPostgresAdapter() {
                     updated_at = NOW()
                 RETURNING *
             `, [brandingHash, platform, arch, format, buildStatus, artifactPath || null, artifactSize || 0, artifactSha256 || null, errorMessage || '']);
+        },
+
+        // ---- rdgen_runs ----
+
+        async createRdgenRun(data) {
+            await q(`
+                INSERT INTO rdgen_runs (uuid, github_run_id, platform, filename, appname, status, log_url)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [
+                data.uuid,
+                data.github_run_id || null,
+                data.platform || '',
+                data.filename || '',
+                data.appname || '',
+                data.status || 'starting',
+                data.log_url || null
+            ]);
+            return this.getRdgenRun(data.uuid);
+        },
+
+        async getRdgenRun(uuid) {
+            const res = await q('SELECT * FROM rdgen_runs WHERE uuid = $1', [uuid]);
+            return res.rows[0] || null;
+        },
+
+        async updateRdgenRun(uuid, updates) {
+            const setClauses = [];
+            const values = [];
+            let i = 1;
+            for (const [k, v] of Object.entries(updates)) {
+                setClauses.push(`${k} = $${i}`);
+                values.push(v);
+                i++;
+            }
+            if (setClauses.length === 0) return this.getRdgenRun(uuid);
+            setClauses.push(`updated_at = NOW()`);
+            values.push(uuid);
+            
+            await q(`UPDATE rdgen_runs SET ${setClauses.join(', ')} WHERE uuid = $${i}`, values);
+            return this.getRdgenRun(uuid);
         },
 
         // ---- Integration Housekeeping ----
