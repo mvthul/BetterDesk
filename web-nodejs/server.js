@@ -50,6 +50,15 @@ const {
     attachPrivilegedPortErrorHandler,
 } = require('./lib/privilegedPorts');
 
+// Global Process Error Handlers
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('[WARN] Unhandled Promise Rejection:', reason);
+});
+
 // Create Express app
 const app = express();
 
@@ -710,13 +719,23 @@ async function startServer() {
                 closePromises.push(new Promise(r => apiServer.close(r)));
             }
             
-            Promise.all(closePromises).then(() => {
+            Promise.all(closePromises).then(async () => {
+                try {
+                    if (typeof db.close === 'function') await db.close();
+                } catch (_) {
+                    // Ignore DB close errors during shutdown
+                }
                 console.log('All servers closed.');
                 process.exit(0);
             });
             
             // Force exit after 10 seconds
-            setTimeout(() => {
+            setTimeout(async () => {
+                try {
+                    if (typeof db.close === 'function') await db.close();
+                } catch (_) {
+                    // Ignore DB close errors during forced exit
+                }
                 console.error('Forced shutdown after timeout');
                 process.exit(1);
             }, 10000);

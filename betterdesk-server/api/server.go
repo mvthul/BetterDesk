@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"regexp"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -244,15 +243,14 @@ func (s *Server) InitOIDC() {
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 
-	// Health + info (public, no auth required)
+	// Health and public key are needed for client bootstrap. Detailed runtime
+	// stats use the same allowlist/auth policy as Prometheus metrics.
 	mux.HandleFunc("GET /api/health", s.handleHealth)
-	mux.HandleFunc("GET /api/server/stats", s.handleServerStats)
+	mux.HandleFunc("GET /api/server/stats", s.metricsGuard(s.handleServerStats))
 	mux.HandleFunc("GET /api/server/pubkey", s.handlePubKey)
 
 	// Peers (permission-based access control)
 	mux.HandleFunc("GET /api/peers", s.requirePermission(auth.PermDeviceView, s.handleListPeers))
-	mux.HandleFunc("POST /api/peers/activity/report", s.requirePermission(auth.PermDeviceView, s.handleDeviceActivityReport))
-	mux.HandleFunc("POST /api/peers/remote-sessions/event", s.requirePermission(auth.PermDeviceView, s.handleRemoteSessionEvent))
 	mux.HandleFunc("GET /api/peers/{id}", s.requirePermission(auth.PermDeviceView, s.handleGetPeer))
 	mux.HandleFunc("DELETE /api/peers/{id}", s.requirePermission(auth.PermDeviceDelete, s.handleDeletePeer))
 	mux.HandleFunc("PATCH /api/peers/{id}", s.requirePermission(auth.PermDeviceEdit, s.handleUpdatePeerFields))
@@ -271,6 +269,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("GET /api/peers/{id}/access-policy", s.requireRole(auth.RoleOperator, s.handleGetAccessPolicy))
 	mux.HandleFunc("PUT /api/peers/{id}/access-policy", s.requireRole(auth.RoleAdmin, s.handleSaveAccessPolicy))
 	mux.HandleFunc("DELETE /api/peers/{id}/access-policy", s.requireRole(auth.RoleAdmin, s.handleDeleteAccessPolicy))
+	mux.HandleFunc("POST /api/peers/{id}/session-grant", s.requireRole(auth.RoleOperator, s.handleIssueSupportSessionGrant))
 	mux.HandleFunc("GET /api/peers/{id}/policy", s.handleGetPeerPolicy)
 
 	// Blocklist management
@@ -448,7 +447,6 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("GET /api/devices/register/status", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceRegisterStatus))
 	mux.HandleFunc("POST /api/devices/self/access-policy", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfAccessPolicy))
 	mux.HandleFunc("POST /api/devices/self/help-request", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfHelpRequest))
-	mux.HandleFunc("GET /api/devices/self/totp", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfTOTP))
 	mux.HandleFunc("POST /api/devices/self/totp", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfTOTP))
 
 	// Help requests — operator panel (raised by agents via CDAP or REST self endpoint)
@@ -481,8 +479,10 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Enrollment — operator approval (admin/operator)
 	mux.HandleFunc("GET /api/enrollment/pending", s.requireRole(auth.RoleOperator, s.handleListPendingDevices))
+	mux.HandleFunc("GET /api/enrollment/history", s.requireRole(auth.RoleOperator, s.handleListEnrollmentHistory))
 	mux.HandleFunc("POST /api/enrollment/approve/{id}", s.requireRole(auth.RoleOperator, s.handleApproveDevice))
 	mux.HandleFunc("POST /api/enrollment/reject/{id}", s.requireRole(auth.RoleOperator, s.handleRejectDevice))
+	mux.HandleFunc("POST /api/enrollment/clear-rejection/{id}", s.requireRole(auth.RoleOperator, s.handleClearEnrollmentRejection))
 
 	// LDAP configuration (server.config permission)
 	mux.HandleFunc("GET /api/auth/ldap/config", s.requirePermission(auth.PermServerConfig, s.handleGetLDAPConfig))
@@ -861,56 +861,18 @@ func (s *Server) handleListPeers(w http.ResponseWriter, r *http.Request) {
 	// Issue #138 hardening: override db.Peer.Status (string) with an int
 	// so any RustDesk client that reaches this handler without the
 	// ?accessible / ?pageSize detection still receives a valid int.
-	type activeRemoteSessionResponse struct {
-		Operator       string    `json:"operator"`
-		ControllerID   string    `json:"controller_id"`
-		ControllerName string    `json:"controller_name"`
-		StartedAt      time.Time `json:"started_at"`
-	}
 	type peerResponse struct {
 		*db.Peer
-		Status               int                           `json:"status"`      // 1=active, 0=disabled (overrides db.Peer.Status string)
-		StatusText           string                        `json:"status_text"` // Original string status for admin panel
-		LiveOnline           bool                          `json:"live_online"`
-		LiveStatus           peer.Status                   `json:"live_status"`
-		Platform             string                        `json:"platform"`
-		CDAPConnected        bool                          `json:"cdap_connected"`
-		MeshConnected        bool                          `json:"mesh_connected"`
-		MeshNodeID           string                        `json:"mesh_node_id,omitempty"`
-		OnlineSince          *time.Time                    `json:"online_since,omitempty"`
-		OnlineSeconds        int64                         `json:"online_seconds"`
-		RemoteLive           bool                          `json:"remote_live"`
-		RemoteLiveSince      *time.Time                    `json:"remote_live_since,omitempty"`
-		RemoteLiveSeconds    int64                         `json:"remote_live_seconds"`
-		ActiveSessionCount   int                           `json:"active_session_count"`
-		ActiveOperators      []string                      `json:"active_operators"`
-		ActiveRemoteSessions []activeRemoteSessionResponse `json:"active_remote_sessions"`
+		Status        int         `json:"status"`      // 1=active, 0=disabled (overrides db.Peer.Status string)
+		StatusText    string      `json:"status_text"` // Original string status for admin panel
+		LiveOnline    bool        `json:"live_online"`
+		LiveStatus    peer.Status `json:"live_status"`
+		Platform      string      `json:"platform"`
+		CDAPConnected bool        `json:"cdap_connected"`
+		MeshConnected bool        `json:"mesh_connected"`
+		MeshNodeID    string      `json:"mesh_node_id,omitempty"`
 	}
 
-	peerIDs := make([]string, 0, len(peers))
-	for _, p := range peers {
-		peerIDs = append(peerIDs, p.ID)
-	}
-	openSessions := map[string]*db.DeviceOnlineSession{}
-	if len(peerIDs) > 0 {
-		openSessions, err = s.db.GetOpenDeviceOnlineSessions(peerIDs)
-		if err != nil {
-			log.Printf("[api] Failed to load open device sessions: %v", err)
-			openSessions = map[string]*db.DeviceOnlineSession{}
-		}
-	}
-	openRemoteSessions := map[string][]*db.RemoteAccessSession{}
-	if len(peerIDs) > 0 {
-		if _, cleanupErr := s.db.CloseStaleWebRemoteAccessSessions(time.Now().UTC().Add(-3*time.Minute), time.Minute); cleanupErr != nil {
-			log.Printf("[api] Failed to close stale web remote sessions: %v", cleanupErr)
-		}
-		openRemoteSessions, err = s.db.GetOpenRemoteAccessSessions(peerIDs)
-		if err != nil {
-			log.Printf("[api] Failed to load open remote sessions: %v", err)
-			openRemoteSessions = map[string][]*db.RemoteAccessSession{}
-		}
-	}
-	reportNow := time.Now().UTC()
 	result := make([]peerResponse, len(peers))
 	for i, p := range peers {
 		liveOnline := s.peers.IsOnline(p.ID, config.RegTimeout)
@@ -939,82 +901,17 @@ func (s *Server) handleListPeers(w http.ResponseWriter, r *http.Request) {
 		if p.Disabled {
 			statusInt = 0
 		}
-		var onlineSince *time.Time
-		var onlineSeconds int64
-		if liveOnline {
-			if session := openSessions[p.ID]; session != nil {
-				startedAt := session.StartedAt.UTC()
-				onlineSince = &startedAt
-				if reportNow.After(startedAt) {
-					onlineSeconds = int64(reportNow.Sub(startedAt) / time.Second)
-				}
-			}
-		}
-		var remoteLiveSince *time.Time
-		activeOperators := make([]string, 0)
-		activeRemoteSessions := make([]activeRemoteSessionResponse, 0, len(openRemoteSessions[p.ID]))
-		for _, session := range openRemoteSessions[p.ID] {
-			startedAt := session.StartedAt.UTC()
-			if remoteLiveSince == nil || startedAt.Before(*remoteLiveSince) {
-				value := startedAt
-				remoteLiveSince = &value
-			}
-			operator := strings.TrimSpace(session.OperatorUsername)
-			if operator == "" {
-				operator = strings.TrimSpace(session.ControllerName)
-			}
-			if operator == "" {
-				operator = session.ControllerID
-			}
-			if operator != "" {
-				found := false
-				for _, existing := range activeOperators {
-					if existing == operator {
-						found = true
-						break
-					}
-				}
-				if !found {
-					activeOperators = append(activeOperators, operator)
-				}
-			}
-			activeRemoteSessions = append(activeRemoteSessions, activeRemoteSessionResponse{
-				Operator:       operator,
-				ControllerID:   strings.TrimSpace(session.ControllerID),
-				ControllerName: strings.TrimSpace(session.ControllerName),
-				StartedAt:      startedAt,
-			})
-		}
-		sort.Strings(activeOperators)
-		sort.Slice(activeRemoteSessions, func(i, j int) bool {
-			if activeRemoteSessions[i].StartedAt.Equal(activeRemoteSessions[j].StartedAt) {
-				return activeRemoteSessions[i].ControllerID < activeRemoteSessions[j].ControllerID
-			}
-			return activeRemoteSessions[i].StartedAt.Before(activeRemoteSessions[j].StartedAt)
-		})
-		remoteLiveSeconds := int64(0)
-		if remoteLiveSince != nil && reportNow.After(*remoteLiveSince) {
-			remoteLiveSeconds = int64(reportNow.Sub(*remoteLiveSince) / time.Second)
-		}
 
 		result[i] = peerResponse{
-			Peer:                 p,
-			Status:               statusInt,
-			StatusText:           p.Status,
-			LiveOnline:           liveOnline,
-			LiveStatus:           liveStatus,
-			Platform:             p.OS,
-			CDAPConnected:        cdapConnected,
-			MeshConnected:        meshConnected,
-			MeshNodeID:           meshNodeID,
-			OnlineSince:          onlineSince,
-			OnlineSeconds:        onlineSeconds,
-			RemoteLive:           len(openRemoteSessions[p.ID]) > 0,
-			RemoteLiveSince:      remoteLiveSince,
-			RemoteLiveSeconds:    remoteLiveSeconds,
-			ActiveSessionCount:   len(openRemoteSessions[p.ID]),
-			ActiveOperators:      activeOperators,
-			ActiveRemoteSessions: activeRemoteSessions,
+			Peer:          p,
+			Status:        statusInt,
+			StatusText:    p.Status,
+			LiveOnline:    liveOnline,
+			LiveStatus:    liveStatus,
+			Platform:      p.OS,
+			CDAPConnected: cdapConnected,
+			MeshConnected: meshConnected,
+			MeshNodeID:    meshNodeID,
 		}
 	}
 
@@ -1120,26 +1017,11 @@ func (s *Server) handleGetPeer(w http.ResponseWriter, r *http.Request) {
 		CDAPConnected bool        `json:"cdap_connected"`
 		MeshConnected bool        `json:"mesh_connected"`
 		MeshNodeID    string      `json:"mesh_node_id,omitempty"`
-		OnlineSince   *time.Time  `json:"online_since,omitempty"`
-		OnlineSeconds int64       `json:"online_seconds"`
 	}
 
 	statusInt := 1
 	if p.Disabled {
 		statusInt = 0
-	}
-	var onlineSince *time.Time
-	var onlineSeconds int64
-	if liveOnline {
-		if sessions, err := s.db.GetOpenDeviceOnlineSessions([]string{p.ID}); err == nil {
-			if session := sessions[p.ID]; session != nil {
-				startedAt := session.StartedAt.UTC()
-				onlineSince = &startedAt
-				if now := time.Now().UTC(); now.After(startedAt) {
-					onlineSeconds = int64(now.Sub(startedAt) / time.Second)
-				}
-			}
-		}
 	}
 
 	writeJSON(w, http.StatusOK, singlePeerResponse{
@@ -1152,8 +1034,6 @@ func (s *Server) handleGetPeer(w http.ResponseWriter, r *http.Request) {
 		CDAPConnected: cdapConnected,
 		MeshConnected: meshConnected,
 		MeshNodeID:    meshNodeID,
-		OnlineSince:   onlineSince,
-		OnlineSeconds: onlineSeconds,
 	})
 }
 
@@ -1389,6 +1269,9 @@ func (s *Server) handleUnbanPeer(w http.ResponseWriter, r *http.Request) {
 		entry.Banned = false
 	}
 
+	// Also clear enrollment rejection lock so the device can re-queue (#351).
+	s.clearEnrollmentRejectionState(id)
+
 	if s.auditLog != nil {
 		s.auditLog.Log(audit.ActionPeerUnbanned, s.remoteIP(r), id, nil)
 	}
@@ -1504,10 +1387,12 @@ func (s *Server) handleChangePeerID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Preserve the live TCP/WSS registration while changing its map key.
-	// Closing that connection makes the renamed device appear present in the
-	// management API but unreachable for inbound RustDesk sessions.
-	s.peers.Rename(oldID, body.NewID)
+	// Update memory map
+	entry := s.peers.Remove(oldID)
+	if entry != nil {
+		entry.ID = body.NewID
+		s.peers.Put(entry)
+	}
 
 	if s.auditLog != nil {
 		s.auditLog.Log(audit.ActionPeerIDChanged, s.remoteIP(r), oldID, map[string]string{"new_id": body.NewID})

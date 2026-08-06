@@ -16,16 +16,8 @@ import (
 	"github.com/unitronix/betterdesk-server/peer"
 	pb "github.com/unitronix/betterdesk-server/proto"
 	"github.com/unitronix/betterdesk-server/ratelimit"
+	"github.com/unitronix/betterdesk-server/relay"
 )
-
-type signalTestCloser struct {
-	closed bool
-}
-
-func (c *signalTestCloser) Close() error {
-	c.closed = true
-	return nil
-}
 
 func newTestSignalServer(t *testing.T, mode string) (*Server, db.Database) {
 	t.Helper()
@@ -247,20 +239,62 @@ func TestProcessRegisterPkManagedAllowsExistingPeer(t *testing.T) {
 	}
 }
 
-func TestProcessRegisterPkPopulatesPeerIP(t *testing.T) {
+func TestProcessRegisterPkPreservesPersistedIdentityAfterRestart(t *testing.T) {
 	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
-	if err := database.UpsertPeer(&db.Peer{ID: "PKIP10", Status: "OFFLINE"}); err != nil {
-		t.Fatalf("UpsertPeer: %v", err)
+	storedUUID := []byte("persisted-uuid-1")
+	storedPK := bytes.Repeat([]byte{0x7A}, 32)
+	if err := database.UpsertPeer(&db.Peer{
+		ID:     "RESTART1",
+		UUID:   hex.EncodeToString(storedUUID),
+		PK:     storedPK,
+		Status: "OFFLINE",
+	}); err != nil {
+		t.Fatal(err)
 	}
 
-	resp := srv.processRegisterPk(newRegisterPk("PKIP10"), "109.38.228.247:6432")
-	if got := registerPkResult(resp); got != pb.RegisterPkResponse_OK {
-		t.Fatalf("RegisterPk result = %v, want %v", got, pb.RegisterPkResponse_OK)
+	takeover := &pb.RegisterPk{
+		Id:   "RESTART1",
+		Uuid: storedUUID,
+		Pk:   bytes.Repeat([]byte{0x5A}, 32),
+	}
+	if got := registerPkResult(srv.processRegisterPk(takeover, "203.0.113.10:50123")); got != pb.RegisterPkResponse_NOT_SUPPORT {
+		t.Fatalf("mismatched persisted PK = %v, want NOT_SUPPORT", got)
+	}
+	persisted, err := database.GetPeer("RESTART1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted == nil || !bytes.Equal(persisted.PK, storedPK) || persisted.UUID != hex.EncodeToString(storedUUID) {
+		t.Fatalf("persisted identity changed after rejected RegisterPk: %+v", persisted)
 	}
 
-	found := srv.PeerMap().FindByIP(net.ParseIP("109.38.228.247"))
-	if found == nil || found.ID != "PKIP10" {
-		t.Fatalf("FindByIP after RegisterPk = %+v, want PKIP10", found)
+	if got := registerPkResult(srv.processRegisterPk(&pb.RegisterPk{
+		Id:   "RESTART1",
+		Uuid: storedUUID,
+		Pk:   storedPK,
+	}, "203.0.113.10:50123")); got != pb.RegisterPkResponse_OK {
+		t.Fatalf("matching persisted identity = %v, want OK", got)
+	}
+}
+
+func TestProcessRegisterPkFirstEnrollmentStoresIdentity(t *testing.T) {
+	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+	firstUUID := []byte("first-enrollment")
+	firstPK := bytes.Repeat([]byte{0x31}, 32)
+
+	if got := registerPkResult(srv.processRegisterPk(&pb.RegisterPk{
+		Id:   "FIRSTPK1",
+		Uuid: firstUUID,
+		Pk:   firstPK,
+	}, "203.0.113.11:50123")); got != pb.RegisterPkResponse_OK {
+		t.Fatalf("first enrollment = %v, want OK", got)
+	}
+	persisted, err := database.GetPeer("FIRSTPK1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persisted == nil || !bytes.Equal(persisted.PK, firstPK) || persisted.UUID != hex.EncodeToString(firstUUID) {
+		t.Fatalf("first enrollment did not persist identity: %+v", persisted)
 	}
 }
 
@@ -402,41 +436,6 @@ func TestProcessIDChangeSuccessEmptyPK(t *testing.T) {
 	}
 }
 
-func TestProcessIDChangePreservesLiveWSRegistration(t *testing.T) {
-	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
-	storedPK := bytes.Repeat([]byte{0x42}, 32)
-	if err := database.UpsertPeer(&db.Peer{
-		ID: "LIVEOLD", PK: storedPK, Status: "ONLINE",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	conn := &signalTestCloser{}
-	entry := &peer.Entry{
-		ID:       "LIVEOLD",
-		PK:       storedPK,
-		ConnType: peer.ConnWS,
-		WSConn:   conn,
-		LastReg:  time.Now(),
-	}
-	srv.peers.Put(entry)
-
-	resp := srv.processIDChange(&pb.RegisterPk{
-		Id: "LIVENEW", OldId: "LIVEOLD", Uuid: []byte("machine-uid-bytes"),
-	})
-	if got := registerPkResult(resp); got != pb.RegisterPkResponse_OK {
-		t.Fatalf("ID change result = %v, want %v", got, pb.RegisterPkResponse_OK)
-	}
-	if conn.closed {
-		t.Fatal("ID change closed the persistent WS registration")
-	}
-	if srv.peers.Get("LIVEOLD") != nil || srv.peers.Get("LIVENEW") != entry {
-		t.Fatal("live peer map was not moved to the new ID")
-	}
-	if entry.WSConn != conn {
-		t.Fatal("renamed peer lost its WS connection binding")
-	}
-}
-
 func TestProcessIDChangeRejectsWrongPKWhenPKSent(t *testing.T) {
 	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
 
@@ -479,31 +478,6 @@ func TestResolveRegistrationPeerIDRedirectsSameDevice(t *testing.T) {
 	effective, ok = srv.resolveRegistrationPeerID("MACPRO1", "198.51.100.99", nil, nil)
 	if ok {
 		t.Fatalf("resolveRegistrationPeerID different IP = (%q, %v), want reject", effective, ok)
-	}
-}
-
-func TestResolveRegistrationPeerIDAllowsCurrentRoundTripID(t *testing.T) {
-	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
-	pk := bytes.Repeat([]byte{0x42}, 32)
-	if err := database.UpsertPeer(&db.Peer{
-		ID: "ROUND_A", Status: "ONLINE", PK: pk,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.ChangePeerID("ROUND_A", "ROUND_B", "client"); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.ChangePeerID("ROUND_B", "ROUND_A", "client"); err != nil {
-		t.Fatal(err)
-	}
-
-	effective, ok := srv.resolveRegistrationPeerID("ROUND_A", "198.51.100.99", nil, nil)
-	if !ok || effective != "ROUND_A" {
-		t.Fatalf("current round-trip ID resolved as (%q, %v), want (ROUND_A, true)", effective, ok)
-	}
-	effective, ok = srv.resolveRegistrationPeerID("ROUND_B", "198.51.100.99", nil, pk)
-	if !ok || effective != "ROUND_A" {
-		t.Fatalf("stale round-trip ID resolved as (%q, %v), want (ROUND_A, true)", effective, ok)
 	}
 }
 
@@ -677,7 +651,7 @@ func TestHandleRequestRelayTCPSamePublicIPIgnoresPrivateRelayHint(t *testing.T) 
 	}
 }
 
-func TestHandleRequestRelayTCPMixedTransportAllowed(t *testing.T) {
+func TestHandleRequestRelayTCPProtocolMismatch(t *testing.T) {
 	srv, _ := newTestSignalServer(t, config.EnrollmentModeOpen)
 	srv.localIP.Store("198.51.100.20")
 
@@ -698,18 +672,15 @@ func TestHandleRequestRelayTCPMixedTransportAllowed(t *testing.T) {
 
 	resp := srv.handleRequestRelayTCP(&pb.RequestRelay{
 		Id:   "NATIVETGT",
-		Uuid: "issue-290-mixed-uuid",
+		Uuid: "issue-290-mismatch-uuid",
 	}, udpAddr("198.51.100.30", 51000), peer.ConnWS)
 
 	rr := resp.GetRelayResponse()
 	if rr == nil {
 		t.Fatalf("expected RelayResponse, got %+v", resp)
 	}
-	if rr.RefuseReason != "" {
-		t.Fatalf("unexpected RefuseReason %q", rr.RefuseReason)
-	}
-	if rr.Uuid != "issue-290-mixed-uuid" {
-		t.Fatalf("uuid = %q", rr.Uuid)
+	if rr.RefuseReason != refuseRelayProtocolMismatch {
+		t.Fatalf("RefuseReason = %q, want %q", rr.RefuseReason, refuseRelayProtocolMismatch)
 	}
 }
 
@@ -746,6 +717,27 @@ func TestHandleRequestRelayTCPMatchingWSAllowed(t *testing.T) {
 	}
 	if rr.Uuid != "issue-290-match-uuid" {
 		t.Fatalf("uuid = %q", rr.Uuid)
+	}
+}
+
+func TestRelayTransportMismatchHelper(t *testing.T) {
+	cases := []struct {
+		a, b peer.ConnType
+		want bool
+	}{
+		{peer.ConnWS, peer.ConnTCP, true},
+		{peer.ConnWS, peer.ConnUDP, true},
+		{peer.ConnTCP, peer.ConnWS, true},
+		{peer.ConnUDP, peer.ConnWS, true},
+		{peer.ConnWS, peer.ConnWS, false},
+		{peer.ConnTCP, peer.ConnUDP, false},
+		{peer.ConnTCP, peer.ConnTCP, false},
+		{peer.ConnUDP, peer.ConnUDP, false},
+	}
+	for _, tc := range cases {
+		if got := relayTransportMismatch(tc.a, tc.b); got != tc.want {
+			t.Errorf("relayTransportMismatch(%s, %s) = %v, want %v", tc.a, tc.b, got, tc.want)
+		}
 	}
 }
 
@@ -964,6 +956,156 @@ func TestOpenRegisteredInitiatorCanRequestRelay(t *testing.T) {
 	}
 }
 
+func TestInboundOnlyAgentsCannotInitiatePunchOrRelay(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		deviceType string
+		tags       string
+	}{
+		{name: "os_agent type", deviceType: "os_agent"},
+		{name: "support-agent type", deviceType: "support-agent"},
+		{name: "support-agent tag", deviceType: "desktop", tags: "managed,support-agent"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+			if err := database.UpsertPeer(&db.Peer{
+				ID:         "AGENTOUT1",
+				DeviceType: tc.deviceType,
+				Tags:       tc.tags,
+				Status:     "ONLINE",
+				IP:         "198.51.100.101",
+			}); err != nil {
+				t.Fatalf("UpsertPeer initiator: %v", err)
+			}
+			putOnlinePeer(srv, "AGENTOUT1", "198.51.100.101", 51000, peer.ConnTCP)
+			putOnlinePeer(srv, "TARGETOUT1", "203.0.113.101", 52000, peer.ConnTCP)
+
+			punch := srv.handlePunchHoleRequestTCP(
+				&pb.PunchHoleRequest{Id: "TARGETOUT1"},
+				udpAddr("198.51.100.101", 51000),
+			)
+			if response := punch.GetPunchHoleResponse(); response == nil || response.Failure != pb.PunchHoleResponse_ID_NOT_EXIST {
+				t.Fatalf("PunchHole response = %+v, want unauthorized rejection", punch)
+			}
+
+			relay := srv.handleRequestRelayTCP(&pb.RequestRelay{
+				Id:   "TARGETOUT1",
+				Uuid: "inbound-only-relay-" + strings.ReplaceAll(tc.name, " ", "-"),
+			}, udpAddr("198.51.100.101", 51000), peer.ConnTCP)
+			if response := relay.GetRelayResponse(); response == nil || response.RefuseReason != refuseInitiatorNotAuthorized {
+				t.Fatalf("RequestRelay response = %+v, want unauthorized rejection", relay)
+			}
+		})
+	}
+}
+
+func TestInboundOnlyAgentCanBeConnectionTarget(t *testing.T) {
+	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+	if err := database.UpsertPeer(&db.Peer{
+		ID:         "CLIENTIN1",
+		DeviceType: "betterdesk",
+		Status:     "ONLINE",
+		IP:         "198.51.100.102",
+	}); err != nil {
+		t.Fatalf("UpsertPeer initiator: %v", err)
+	}
+	if err := database.UpsertPeer(&db.Peer{
+		ID:         "AGENTIN01",
+		DeviceType: "os_agent",
+		Status:     "ONLINE",
+		IP:         "203.0.113.102",
+	}); err != nil {
+		t.Fatalf("UpsertPeer target: %v", err)
+	}
+	putOnlinePeer(srv, "CLIENTIN1", "198.51.100.102", 51000, peer.ConnTCP)
+	putOnlinePeer(srv, "AGENTIN01", "203.0.113.102", 52000, peer.ConnTCP)
+
+	relay := srv.handleRequestRelayTCP(&pb.RequestRelay{
+		Id:   "AGENTIN01",
+		Uuid: "agent-is-target-relay",
+	}, udpAddr("198.51.100.102", 51000), peer.ConnTCP)
+	if response := relay.GetRelayResponse(); response == nil || response.RefuseReason != "" {
+		t.Fatalf("RequestRelay to inbound-only target = %+v, want accepted", relay)
+	}
+}
+
+func TestInboundOnlySupportTargetForcesRelay(t *testing.T) {
+	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+	if err := database.UpsertPeer(&db.Peer{ID: "CLIENTRELAY1", DeviceType: "desktop"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.UpsertPeer(&db.Peer{
+		ID:         "SUPPORTRELAY1",
+		DeviceType: "os_agent",
+		Tags:       "support-agent",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	putOnlinePeer(srv, "CLIENTRELAY1", "198.51.100.160", 51000, peer.ConnTCP)
+	putOnlinePeer(srv, "SUPPORTRELAY1", "203.0.113.160", 52000, peer.ConnTCP)
+
+	response := srv.handlePunchHoleRequestTCP(
+		&pb.PunchHoleRequest{Id: "SUPPORTRELAY1"},
+		udpAddr("198.51.100.160", 51000),
+	)
+	punch := response.GetPunchHoleResponse()
+	if punch == nil {
+		t.Fatalf("response = %+v, want PunchHoleResponse", response)
+	}
+	if punch.GetNatType() != pb.NatType_SYMMETRIC {
+		t.Fatalf("NatType = %v, want forced relay (%v)", punch.GetNatType(), pb.NatType_SYMMETRIC)
+	}
+}
+
+func TestUnavailableTargetCannotReceiveRelay(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, database db.Database, targetID string)
+	}{
+		{
+			name: "disabled",
+			setup: func(t *testing.T, database db.Database, targetID string) {
+				t.Helper()
+				if err := database.UpsertPeer(&db.Peer{ID: targetID, Disabled: true}); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "soft deleted",
+			setup: func(t *testing.T, database db.Database, targetID string) {
+				t.Helper()
+				if err := database.UpsertPeer(&db.Peer{ID: targetID}); err != nil {
+					t.Fatal(err)
+				}
+				if err := database.DeletePeer(targetID); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+			const initiatorID = "ACTIVEINIT1"
+			const targetID = "UNAVAILTGT1"
+			if err := database.UpsertPeer(&db.Peer{ID: initiatorID, DeviceType: "desktop"}); err != nil {
+				t.Fatal(err)
+			}
+			tc.setup(t, database, targetID)
+			putOnlinePeer(srv, initiatorID, "198.51.100.150", 51000, peer.ConnTCP)
+			putOnlinePeer(srv, targetID, "203.0.113.150", 52000, peer.ConnTCP)
+
+			response := srv.handleRequestRelayTCP(&pb.RequestRelay{
+				Id:   targetID,
+				Uuid: "unavailable-target-" + strings.ReplaceAll(tc.name, " ", "-"),
+			}, udpAddr("198.51.100.150", 51000), peer.ConnTCP)
+			if relay := response.GetRelayResponse(); relay == nil || relay.RefuseReason != "Target offline" {
+				t.Fatalf("relay response = %+v, want unavailable target rejection", response)
+			}
+		})
+	}
+}
+
 func TestPanelProxyLoopbackCanPunchHoleWithoutPeer(t *testing.T) {
 	srv, _ := newTestSignalServer(t, config.EnrollmentModeManaged)
 	putOnlinePeer(srv, "TGTWEB1", "203.0.113.90", 52000, peer.ConnTCP)
@@ -1065,22 +1207,25 @@ func TestTCPRegisterPkBindsIPForViewerOnlyPunch(t *testing.T) {
 func TestManagedPendingSameNATAsApprovedInitiatorRejected(t *testing.T) {
 	// #302 residual: pending client shares public IP with an approved peer but
 	// uses a different source port — must not inherit the approved identity.
+	// Both peers must be live in the map so IP-only fallback sees ambiguity.
 	srv, database := newTestSignalServer(t, config.EnrollmentModeManaged)
 	if err := database.UpsertPeer(&db.Peer{ID: "APPRNAT1", Status: "ONLINE", IP: "203.0.113.44"}); err != nil {
 		t.Fatalf("UpsertPeer approved: %v", err)
 	}
 	putOnlinePeer(srv, "APPRNAT1", "203.0.113.44", 50001, peer.ConnUDP)
+	putOnlinePeer(srv, "PENDNAT1", "203.0.113.44", 59999, peer.ConnUDP)
 	putOnlinePeer(srv, "TGTNAT1", "198.51.100.44", 52000, peer.ConnUDP)
 	if err := database.SetConfig("pending_device_PENDNAT1", `{"device_id":"PENDNAT1"}`); err != nil {
 		t.Fatalf("SetConfig: %v", err)
 	}
 
-	id, ok := srv.requireAuthorizedInitiator(udpAddr("203.0.113.44", 59999), "TGTNAT1", "")
+	// Punch from a third port so FindByAddr misses; two live peers → ambiguous.
+	id, ok := srv.requireAuthorizedInitiator(udpAddr("203.0.113.44", 58888), "TGTNAT1", "")
 	if ok {
 		t.Fatalf("same-NAT pending punch must be rejected, got id=%q", id)
 	}
 
-	resp := srv.handlePunchHoleRequestTCP(&pb.PunchHoleRequest{Id: "TGTNAT1"}, udpAddr("203.0.113.44", 59999))
+	resp := srv.handlePunchHoleRequestTCP(&pb.PunchHoleRequest{Id: "TGTNAT1"}, udpAddr("203.0.113.44", 58888))
 	phr := resp.GetPunchHoleResponse()
 	if phr == nil || phr.Failure != pb.PunchHoleResponse_ID_NOT_EXIST {
 		t.Fatalf("same-NAT pending PunchHole should be unauthorized, got %+v", resp)
@@ -1100,10 +1245,55 @@ func TestExactAddrInitiatorAuthorized(t *testing.T) {
 		t.Fatalf("exact addr auth = (%q, %v), want EXACTINIT1", id, ok)
 	}
 
-	// Different port at same IP must not authorize.
+	// A different port at the same public IP is not an authenticated identity.
 	id, ok = srv.requireAuthorizedInitiator(udpAddr("198.51.100.81", 51001), "TGTEXACT1", "")
+	if ok || id != "" {
+		t.Fatalf("IP-only fallback auth = (%q, %v), want rejection", id, ok)
+	}
+}
+
+func TestSingleIPFallbackRejectsDifferentPort(t *testing.T) {
+	// A stock client must use the same registered endpoint, a bound TCP
+	// session, or an opaque client token; a shared NAT address is insufficient.
+	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+	if err := database.UpsertPeer(&db.Peer{ID: "SOLEINIT1", Status: "ONLINE", IP: "78.31.94.73"}); err != nil {
+		t.Fatalf("UpsertPeer: %v", err)
+	}
+	putOnlinePeer(srv, "SOLEINIT1", "78.31.94.73", 51000, peer.ConnTCP)
+	putOnlinePeer(srv, "TGTSINGLE1", "203.0.113.90", 52000, peer.ConnTCP)
+
+	id, ok := srv.requireAuthorizedInitiator(udpAddr("78.31.94.73", 55041), "TGTSINGLE1", "")
+	if ok || id != "" {
+		t.Fatalf("IP-only fallback = (%q, %v), want rejection", id, ok)
+	}
+
+	resp := srv.handlePunchHoleRequestTCP(&pb.PunchHoleRequest{Id: "TGTSINGLE1"}, udpAddr("78.31.94.73", 55041))
+	if phr := resp.GetPunchHoleResponse(); phr == nil || phr.Failure != pb.PunchHoleResponse_ID_NOT_EXIST {
+		t.Fatalf("IP-only PunchHole must be unauthorized, got %+v", resp)
+	}
+}
+
+func TestMultiApprovedSameIPAmbiguousRejected(t *testing.T) {
+	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+	if err := database.UpsertPeer(&db.Peer{ID: "APPR1", Status: "ONLINE", IP: "203.0.113.88"}); err != nil {
+		t.Fatalf("UpsertPeer APPR1: %v", err)
+	}
+	if err := database.UpsertPeer(&db.Peer{ID: "APPR2", Status: "ONLINE", IP: "203.0.113.88"}); err != nil {
+		t.Fatalf("UpsertPeer APPR2: %v", err)
+	}
+	putOnlinePeer(srv, "APPR1", "203.0.113.88", 50001, peer.ConnUDP)
+	putOnlinePeer(srv, "APPR2", "203.0.113.88", 50002, peer.ConnUDP)
+	putOnlinePeer(srv, "TGTMULTI1", "198.51.100.88", 52000, peer.ConnTCP)
+
+	id, ok := srv.requireAuthorizedInitiator(udpAddr("203.0.113.88", 59999), "TGTMULTI1", "")
 	if ok {
-		t.Fatalf("wrong port must be rejected, got id=%q", id)
+		t.Fatalf("ambiguous same-NAT must be rejected, got id=%q", id)
+	}
+
+	// Exact port still works for each peer.
+	id, ok = srv.requireAuthorizedInitiator(udpAddr("203.0.113.88", 50001), "TGTMULTI1", "")
+	if !ok || id != "APPR1" {
+		t.Fatalf("exact addr APPR1 = (%q, %v)", id, ok)
 	}
 }
 
@@ -1180,5 +1370,50 @@ func TestClientTokenAuthorizesViewerOnlyPunch(t *testing.T) {
 	id, ok = srv.requireAuthorizedInitiator(udpAddr("198.51.100.75", 51000), "TGTOK1", token)
 	if ok {
 		t.Fatalf("managed token without DB peer must fail, got %q", id)
+	}
+}
+
+func TestBannedTokenInitiatorRevokesSessionAndRelayTickets(t *testing.T) {
+	srv, database := newTestSignalServer(t, config.EnrollmentModeOpen)
+	if err := database.UpsertPeer(&db.Peer{
+		ID:     "TOKBAN1",
+		UUID:   hex.EncodeToString([]byte("token-ban-uuid1")),
+		Status: "ONLINE",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.BanPeer("TOKBAN1", "test ban"); err != nil {
+		t.Fatal(err)
+	}
+	user := &db.User{Username: "bannedtoken", PasswordHash: "hash", Role: "admin"}
+	if err := database.CreateUser(user); err != nil {
+		t.Fatal(err)
+	}
+	token := strings.Repeat("cd", 32)
+	if err := database.CreateClientSession(&db.ClientSession{
+		TokenHash:  hashOpaqueClientToken(token),
+		UserID:     user.ID,
+		ClientID:   "TOKBAN1",
+		ClientUUID: "token-ban-uuid1",
+		ExpiresAt:  time.Now().UTC().Add(time.Hour).Format("2006-01-02 15:04:05"),
+		CreatedAt:  time.Now().UTC().Format("2006-01-02 15:04:05"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	const relayUUID = "banned-token-relay-uuid"
+	if !relay.AuthorizeRelayPair(relayUUID, "TOKBAN1", "TGTBAN1") {
+		t.Fatal("expected relay ticket authorization")
+	}
+	if id, ok := srv.requireAuthorizedInitiator(udpAddr("198.51.100.76", 51000), "TGTBAN1", token); ok || id != "" {
+		t.Fatalf("banned token initiator = (%q, %v), want rejection", id, ok)
+	}
+	if sess, err := database.GetClientSessionByTokenHash(hashOpaqueClientToken(token)); err != nil {
+		t.Fatal(err)
+	} else if sess != nil {
+		t.Fatalf("banned token session remained active: %+v", sess)
+	}
+	if relay.AuthorizeRelayPair(relayUUID, "TOKBAN1", "TGTBAN1") {
+		t.Fatal("banned peer relay ticket must remain revoked")
 	}
 }

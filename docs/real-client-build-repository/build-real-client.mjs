@@ -80,7 +80,13 @@ function countLiteral(value, needle) {
 async function replaceExact(root, relative, before, after, expected = 1) {
     const file = path.join(root, relative);
     await assertRegularFile(file, relative);
-    const value = await fs.readFile(file, 'utf8');
+    let value = await fs.readFile(file, 'utf8');
+    
+    // Normalize line endings to LF to avoid strict string mismatch on Windows runners
+    value = value.replace(/\r\n/g, '\n');
+    before = before.replace(/\r\n/g, '\n');
+    after = after.replace(/\r\n/g, '\n');
+
     const actual = countLiteral(value, before);
     if (actual !== expected) fail(`${relative}: expected ${expected} exact source marker(s), found ${actual}`);
     await fs.writeFile(file, value.split(before).join(after), { encoding: 'utf8', mode: 0o600 });
@@ -111,7 +117,7 @@ function run(command, args, { cwd, env = {}, capture = false } = {}) {
         const child = spawn(command, args, {
             cwd,
             env: { ...process.env, ...env },
-            shell: false,
+            shell: process.platform === 'win32',
             windowsHide: true,
             stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
         });
@@ -617,13 +623,14 @@ async function buildAndroid(plan, inputDir, outputDir, sourceDir, profile) {
     if (!path.isAbsolute(ndk)) fail('ANDROID_NDK_HOME must be an absolute path');
     const secretDir = await prepareAndroidSigning(sourceDir, path.join(path.dirname(inputDir), 'secrets'));
     try {
+        const ndkTriple = plan.arch === 'aarch64' ? 'aarch64-linux-android' : plan.arch === 'armv7' ? 'arm-linux-androideabi' : 'x86_64-linux-android';
+        await run('rustup', ['target', 'add', ndkTriple], { cwd: sourceDir });
         await run(tool('cargo'), ['ndk', '--version'], { cwd: sourceDir });
         const ndkScript = { aarch64: 'ndk_arm64.sh', armv7: 'ndk_arm.sh', x86_64: 'ndk_x64.sh' }[plan.arch];
         await run('bash', [path.join(sourceDir, `flutter/${ndkScript}`)], { cwd: sourceDir, env: { ANDROID_NDK_HOME: ndk, ANDROID_NDK_ROOT: ndk } });
         const nativeDir = path.join(sourceDir, `flutter/android/app/src/main/jniLibs/${profile.abi}`);
         await fs.mkdir(nativeDir, { recursive: true });
         await fs.copyFile(path.join(sourceDir, `target/${profile.rustTarget}/release/liblibrustdesk.so`), path.join(nativeDir, 'librustdesk.so'));
-        const ndkTriple = plan.arch === 'aarch64' ? 'aarch64-linux-android' : plan.arch === 'armv7' ? 'arm-linux-androideabi' : 'x86_64-linux-android';
         const prebuiltRoot = path.join(ndk, 'toolchains/llvm/prebuilt');
         const prebuilt = await findExactlyOneDirectory(prebuiltRoot, () => true, 'Android NDK host prebuilt directory');
         const cxx = path.join(prebuilt, `sysroot/usr/lib/${ndkTriple}/libc++_shared.so`);

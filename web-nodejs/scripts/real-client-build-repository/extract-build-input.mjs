@@ -18,9 +18,17 @@ const TARGETS = Object.freeze({
     'macos-arm64-dmg': { platform: 'macos', arch: 'aarch64', package: 'dmg' },
 });
 
+const SUPPORTED_SOURCE_REVISIONS = Object.freeze({
+    '1.4.9': '6c578292e8ebbbec708b76986ba8c4bc7c509747',
+});
+const VENDOR_REVISIONS = Object.freeze({
+    privacyHelper: '53b548a5398624f7149a382000397993542ad796',
+    flatpakSharedModules: '7b858d89ffe3bf9ce6e0390fe72691c9c5f322d3',
+});
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const GIT_COMMIT = /^[0-9a-f]{40}$/i;
-const UNSAFE_TEXT = /[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069\ud800-\udfff]/iu;
+const UNSAFE_TEXT = /[\\x00-\\x1f\\x7f\\u202a-\\u202e\\u2066-\\u2069\\ud800-\\udfff]/iu;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 function requireObject(value, name) {
@@ -207,4 +215,36 @@ for (const kind of ['icon', 'logo', 'privacy']) {
 // source-revision-specific build adapter. The one-time password remains only
 // in custom-config.json and must never be interpolated into shell commands.
 await writePrivate(path.join(outputDir, 'build-plan.json'), JSON.stringify(buildPlan, null, 2));
-process.stdout.write('Build input extracted without printing sensitive values.\n');
+
+if (process.env.GITHUB_ENV) {
+    const envExports = [
+        `appname=${buildPlan.branding.appName || 'RustDesk'}`,
+        `compname=${buildPlan.branding.companyName || 'Purslane Tech Pte. Ltd.'}`,
+        `urlLink=${buildPlan.branding.customUrl || 'https://rustdesk.com'}`,
+        `apiServer=${buildPlan.network.api?.address ? (buildPlan.network.api.protocol === 'http:' ? 'http://' : 'https://') + buildPlan.network.api.address : ''}`,
+        `customApiServer=${buildPlan.network.api?.address ? (buildPlan.network.api.protocol === 'http:' ? 'http://' : 'https://') + buildPlan.network.api.address : ''}`,
+        `rendezvousServer=${buildPlan.network.id?.address || ''}`,
+        `publickey=${buildPlan.network.publicKey || ''}`,
+        `VERSION=${buildPlan.sourceCommit}`,
+        `rdgen=false`,
+    ];
+    await fs.appendFile(process.env.GITHUB_ENV, envExports.join('\n') + '\n', 'utf8');
+}
+
+process.stdout.write('Build input extracted without printing sensitive values.\\n');
+
+export function describeBuildAdapter() {
+    return {
+        schema: 'betterdesk-real-client-adapter/v1',
+        sourceRevisions: { ...SUPPORTED_SOURCE_REVISIONS },
+        targets: Object.entries(TARGETS).map(([id, profile]) => ({
+            id,
+            implementedByAdapter: !profile.unsupported,
+            reason: profile.unsupported || null,
+            platform: profile.platform || null,
+            arch: profile.arch || null,
+            package: profile.package || null,
+        })),
+        vendorRevisions: { ...VENDOR_REVISIONS },
+    };
+}

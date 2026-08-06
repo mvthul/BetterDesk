@@ -1,7 +1,7 @@
 #!/bin/bash
 #===============================================================================
 #
-#   BetterDesk Console Manager v3.5.13
+#   BetterDesk Console Manager v3.5.23
 #   All-in-One Interactive Tool for Linux
 #
 #   Features:
@@ -36,7 +36,7 @@
 set -e
 
 # Version
-VERSION="3.5.13"
+VERSION="3.5.23"
 # Bump when installer control-flow changes must apply mid-session after Update (#219).
 BETTERDESK_SH_REVISION="20260725-console-start-306"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -3132,8 +3132,8 @@ install_nodejs_console() {
     
     # Install npm dependencies with proper error handling
     local npm_log="/tmp/betterdesk_npm_install.log"
-    if ! npm install --production --ignore-scripts=false > "$npm_log" 2>&1 || ! npm rebuild >> "$npm_log" 2>&1; then
-        print_error "npm install/rebuild failed! Check log:"
+    if ! npm install --production > "$npm_log" 2>&1; then
+        print_error "npm install failed! Check log:"
         tail -20 "$npm_log"
         print_info "Full log: $npm_log"
         return 1
@@ -4651,8 +4651,8 @@ update_from_github() {
     print_step "Installing npm dependencies..."
     cd "$CONSOLE_PATH"
     local npm_log="/tmp/betterdesk_npm_install.log"
-    if npm install --production --no-audit --no-fund --ignore-scripts=false > "$npm_log" 2>&1 && npm rebuild >> "$npm_log" 2>&1; then
-        print_success "npm dependencies installed and native modules rebuilt"
+    if npm install --production --no-audit --no-fund > "$npm_log" 2>&1; then
+        print_success "npm dependencies installed"
     else
         print_warning "npm install had issues (non-critical):"
         tail -5 "$npm_log"

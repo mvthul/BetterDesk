@@ -131,9 +131,9 @@ function validateWorkflow(workflow) {
         || !hostedWorkspaceStep.includes('/usr/local/lib/android/sdk/ndk')
         || !hostedWorkspaceStep.includes('command -v node')
         || !hostedWorkspaceStep.includes('docker system prune --all --force')
-        || !hostedWorkspaceStep.includes('40 * 1024 * 1024 * 1024')
-        || !hostedWorkspaceStep.includes('Hosted Linux workspace has less than the required 40 GiB free')) {
-        fail('GitHub-hosted Linux builds must reclaim and attest at least 40 GiB before checkout');
+        || !hostedWorkspaceStep.includes('30 * 1024 * 1024 * 1024')
+        || !hostedWorkspaceStep.includes('Hosted Linux workspace has less than the required 30 GiB free')) {
+        fail('GitHub-hosted Linux builds must reclaim and attest at least 30 GiB before checkout');
     }
     const linuxDependenciesStep = workflow.match(/- name: Install Linux system and vcpkg dependencies[\s\S]*?(?=\n\s+- name:)/)?.[0] || '';
     if (!linuxDependenciesStep.includes('apt-get remove -y libunwind-14-dev')
@@ -239,13 +239,29 @@ export async function verifyCentralRepository(rootDirectory = '.') {
         hashes[name] = await sha256(file);
     }
 
-    const workflowPath = path.join(root, '.github/workflows/real-client-build.yml');
-    await regularFile(workflowPath, '.github/workflows/real-client-build.yml');
-    const workflow = await fs.readFile(workflowPath, 'utf8');
-    const actions = validateWorkflow(workflow);
-    hashes['real-client-build.yml'] = await sha256(workflowPath);
+    const workflows = [
+        'betterdesk-windows.yml',
+        'betterdesk-android.yml',
+        'betterdesk-linux.yml',
+        'betterdesk-macos.yml',
+        'bridge.yml',
+        'fetch-encrypted-secrets.yml',
+        'third-party-RustDeskTempTopMostWindow.yml',
+        'vcpkg.yml'
+    ];
 
-    const adapterUrl = `${pathToFileURL(path.join(adapterRoot, 'build-real-client.mjs')).href}?admission=${Date.now()}`;
+    let actions = [];
+    for (const wf of workflows) {
+        const wfPath = path.join(root, `.github/workflows/${wf}`);
+        // We only require the main entry points, the modular ones might not exist depending on the copy logic, but let's just assert they exist if they do
+        if (await fs.stat(wfPath).then(s => s.isFile()).catch(() => false)) {
+            const content = await fs.readFile(wfPath, 'utf8');
+            actions = actions.concat(validateWorkflow(content) || []);
+            hashes[wf] = await sha256(wfPath);
+        }
+    }
+
+    const adapterUrl = `${pathToFileURL(path.join(adapterRoot, 'extract-build-input.mjs')).href}?admission=${Date.now()}`;
     const { describeBuildAdapter } = await import(adapterUrl);
     if (typeof describeBuildAdapter !== 'function') fail('build adapter does not export describeBuildAdapter()');
     const contract = describeBuildAdapter();

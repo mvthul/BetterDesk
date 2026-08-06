@@ -828,7 +828,7 @@
     }
 })();
 
-// GitHub Auto-Provisioning
+// GitHub Auto-Provisioning & Repository Update
 document.addEventListener('DOMContentLoaded', () => {
     const btnSubmit = document.getElementById('btn-submit-github-provision');
     const statusDiv = document.getElementById('github-provision-status');
@@ -878,6 +878,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusDiv.querySelector('.material-icons').innerText = 'error';
                 statusDiv.querySelector('.material-icons').style.animation = 'none';
                 btnSubmit.disabled = false;
+            }
+        });
+    }
+
+    const btnUpdateRepo = document.getElementById('btn-update-github-repo');
+    if (btnUpdateRepo) {
+        btnUpdateRepo.addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to update the build repository with the latest adapter scripts? The services will automatically restart upon completion.')) {
+                return;
+            }
+
+            btnUpdateRepo.disabled = true;
+            const originalHtml = btnUpdateRepo.innerHTML;
+            btnUpdateRepo.innerHTML = '<span class="material-icons spinning" style="font-size:1.1em; animation: spin 1s linear infinite;">sync</span> Updating...';
+
+            try {
+                const response = await fetch('/api/panel/generator/real-client/update-github', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': (window.BetterDesk && window.BetterDesk.csrfToken) || ''
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    btnUpdateRepo.innerHTML = '<span class="material-icons" style="font-size:1.1em;">check_circle</span> Updated!';
+                    alert('Build repository updated successfully! BetterDesk services are restarting now. The page will reload automatically in a few seconds.');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 4000);
+                } else {
+                    throw new Error(data.error || 'Failed to update build repository');
+                }
+            } catch (err) {
+                alert('Error updating build repository: ' + err.message);
+                btnUpdateRepo.disabled = false;
+                btnUpdateRepo.innerHTML = originalHtml;
             }
         });
     }

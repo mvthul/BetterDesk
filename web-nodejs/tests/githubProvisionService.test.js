@@ -20,4 +20,13 @@ describe('GithubProvisionService', () => {
 
         await expect(githubProvisionService.provision('bad_pat', 'my-repo')).rejects.toThrow('Failed to authenticate with GitHub: Bad credentials');
     });
+
+    test('update() should throw error if env variables are missing', async () => {
+        const oldToken = process.env.REAL_CLIENT_GITHUB_TOKEN;
+        delete process.env.REAL_CLIENT_GITHUB_TOKEN;
+
+        await expect(githubProvisionService.update()).rejects.toThrow('GitHub repository is not configured or token is missing.');
+
+        if (oldToken) process.env.REAL_CLIENT_GITHUB_TOKEN = oldToken;
+    });
 });

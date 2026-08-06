@@ -309,7 +309,7 @@ router.get('/logout', (req, res) => {
 // ==================== OIDC/OAuth2 Routes ====================
 
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 /**
  * GET /api/auth/oidc/status - Public endpoint for login page

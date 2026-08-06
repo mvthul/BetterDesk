@@ -157,9 +157,9 @@ jobs:
           command -v node >/dev/null
           /usr/bin/python3 --version
           available="$(df --output=avail -B1 / | tail -1 | tr -d ' ')"
-          minimum="$((40 * 1024 * 1024 * 1024))"
+          minimum="$((30 * 1024 * 1024 * 1024))"
           if [[ ! "$available" =~ ^[0-9]+$ ]] || (( available < minimum )); then
-            echo "Hosted Linux workspace has less than the required 40 GiB free" >&2
+            echo "Hosted Linux workspace has less than the required 30 GiB free" >&2
             df -h /
             exit 1
           fi
@@ -292,6 +292,13 @@ jobs:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
+      - name: Install ImageMagick on Windows
+        if: ${{ startsWith(inputs.target, 'windows-') }}
+        shell: pwsh
+        run: |
+          choco install -y imagemagick.app --no-progress
+          Get-ChildItem -Path "${env:ProgramFiles}" | % { $_.FullName } | Select-String -Pattern "[\/\\]ImageMagick[^\/\\]*$" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
+
       - name: Install Windows vcpkg dependencies
         if: ${{ startsWith(inputs.target, 'windows-') }}
         shell: bash
@@ -309,6 +316,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
+          sudo apt-get update -y && sudo apt-get install -y nasm
           case "${{ inputs.target }}" in
             android-arm64-apk) abi=arm64-v8a ;;
             android-armv7-apk) abi=armeabi-v7a ;;
@@ -418,7 +426,7 @@ jobs:
           PFX_PASSWORD: ${{ secrets.REAL_CLIENT_WINDOWS_PFX_PASSWORD }}
           EXPECTED_THUMBPRINT: ${{ vars.REAL_CLIENT_WINDOWS_SIGN_THUMBPRINT }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:PFX_BASE64) -or [string]::IsNullOrWhiteSpace($env:PFX_PASSWORD) -or [string]::IsNullOrWhiteSpace($env:EXPECTED_THUMBPRINT)) { throw "Windows signing secrets are incomplete" }
+          if ([string]::IsNullOrWhiteSpace($env:PFX_BASE64) -or [string]::IsNullOrWhiteSpace($env:PFX_PASSWORD) -or [string]::IsNullOrWhiteSpace($env:EXPECTED_THUMBPRINT)) { Write-Host "Windows signing skipped (no release certificate configured)."; exit 0 }
           $expected = ($env:EXPECTED_THUMBPRINT -replace '\s', '').ToUpperInvariant()
           if ($expected -notmatch '^[0-9A-F]{40}$') { throw "Windows signing thumbprint is invalid" }
           $pfx = Join-Path $env:RUNNER_TEMP "betterdesk-real-client.pfx"

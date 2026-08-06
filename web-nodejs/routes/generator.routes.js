@@ -27,6 +27,7 @@ const conn = require('../services/agentBundleConnection');
 const clientConfigHost = require('../services/clientConfigHost');
 const realClientBuildService = require('../services/realClientBuildService');
 const realClientAssetService = require('../services/realClientAssetService');
+const updateService = require('../services/updateService');
 
 const realClientUpload = multer({
     storage: multer.memoryStorage(),
@@ -175,6 +176,7 @@ router.get('/generator', requireAuth, requireAdmin, (req, res) => {
         activePage: 'generator',
         supportedLangs: bundleService.SUPPORTED_LANGS,
         localeLabels: bundleService.LOCALE_LABELS,
+        isGithubProvisioned: !!process.env.REAL_CLIENT_GITHUB_REPO,
     });
 });
 
@@ -508,6 +510,28 @@ router.post('/api/panel/generator/real-client/provision-github', requireAuth, re
         res.json(result);
     } catch (error) {
         console.error('[github-provision]', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.post('/api/panel/generator/real-client/update-github', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await githubProvisionService.update();
+        res.json(result);
+        setTimeout(() => {
+            try {
+                updateService.restartService('betterdesk-server');
+            } catch (e) {
+                console.error('[github-update] restart betterdesk-server failed:', e.message);
+            }
+            try {
+                updateService.restartService('betterdesk-console');
+            } catch (e) {
+                console.error('[github-update] restart betterdesk-console failed:', e.message);
+            }
+        }, 2000);
+    } catch (error) {
+        console.error('[github-update]', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

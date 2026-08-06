@@ -13,7 +13,7 @@ const configService = require('./realClientConfigService');
 const payloadService = require('./realClientPayloadService');
 
 const TERMINAL_FAILURES = new Set(['failure', 'timed_out', 'action_required', 'startup_failure', 'stale']);
-const RUN_DISCOVERY_TIMEOUT_MS = 30 * 60 * 1000;
+const RUN_DISCOVERY_TIMEOUT_MS = 60 * 60 * 1000;
 const RUN_DISCOVERY_MAX_PAGES = 5;
 const MAX_ARTIFACT_ARCHIVE_ENTRIES = 2048;
 const GIT_COMMIT = /^[0-9a-f]{40}$/i;
@@ -230,7 +230,9 @@ class GithubRealClientBuildProvider extends RealClientBuildProvider {
         const workflowCommit = this.workflowCommit();
         if (!workflowCommit) return null;
         try {
-            const queuedAt = new Date(build.queued_at || build.created_at || 0).getTime() - 5 * 60 * 1000;
+            const dateStr = build.queued_at || build.created_at || '';
+            const parsedDate = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : (dateStr ? dateStr.replace(' ', 'T') + 'Z' : '');
+            const queuedAt = parsedDate ? new Date(parsedDate).getTime() - 5 * 60 * 1000 : 0;
             for (let page = 1; page <= RUN_DISCOVERY_MAX_PAGES; page += 1) {
                 const response = await this.client.get(this.repoPath(`/actions/workflows/${encodeURIComponent(workflow)}/runs`), {
                     // Do not use GitHub's `branch` filter here: dispatch accepts
@@ -242,8 +244,10 @@ class GithubRealClientBuildProvider extends RealClientBuildProvider {
                 const runs = response.data.workflow_runs || [];
                 const match = runs.find((run) => {
                     const title = `${run.display_title || ''} ${run.name || ''}`;
+                    const inputBuildId = run.inputs && typeof run.inputs === 'object' ? String(run.inputs.build_id || '') : '';
+                    const hasBuildId = inputBuildId === build.id || title.includes(build.id);
                     return String(run.head_sha || '').toLowerCase() === workflowCommit
-                        && title.includes(build.id)
+                        && hasBuildId
                         && new Date(run.created_at).getTime() >= queuedAt;
                 });
                 if (match) return match;
@@ -290,7 +294,9 @@ class GithubRealClientBuildProvider extends RealClientBuildProvider {
         }
 
         if (!run) {
-            const age = Date.now() - new Date(build.queued_at || build.created_at).getTime();
+            const dateStr = build.queued_at || build.created_at || '';
+            const parsedDate = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : (dateStr ? dateStr.replace(' ', 'T') + 'Z' : '');
+            const age = parsedDate ? Date.now() - new Date(parsedDate).getTime() : 0;
             if (age > RUN_DISCOVERY_TIMEOUT_MS) {
                 if (build.status === 'cancelling') {
                     return {

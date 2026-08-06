@@ -209,10 +209,9 @@ func (s *Server) wsSignalLoop(wsc *codec.WSConn) {
 	remoteAddr := wsc.RemoteAddr()
 	peerID := ""
 	wsc.SetKeepAliveHandler(func() {
-		// Follow the live connection rather than a captured ID. The ID may be
-		// changed by a separate API/TCP request while this WSS registration
-		// remains open.
-		s.peers.TouchWSHeartbeat(wsc)
+		if peerID != "" {
+			s.peers.TouchHeartbeat(peerID)
+		}
 	})
 	keepAliveDone := make(chan struct{})
 	registered := make(chan struct{})
@@ -241,10 +240,9 @@ func (s *Server) wsSignalLoop(wsc *codec.WSConn) {
 
 		switch {
 		case msg.GetRegisterPeer() != nil:
-			registerPeer := msg.GetRegisterPeer()
-			resp := s.handleRegisterPeerWS(registerPeer, remoteAddr)
+			peerID = msg.GetRegisterPeer().Id
+			resp := s.handleRegisterPeerWS(msg.GetRegisterPeer(), remoteAddr)
 			if resp != nil {
-				peerID = registerPeer.Id
 				bindPeerWSConn(s, peerID, wsc)
 				s.registerWSPunchConn(remoteAddr, wsc)
 				notifyRegistered()
@@ -252,11 +250,10 @@ func (s *Server) wsSignalLoop(wsc *codec.WSConn) {
 			}
 
 		case msg.GetRegisterPk() != nil:
-			registerPK := msg.GetRegisterPk()
-			resp := s.processRegisterPk(registerPK, remoteAddr)
+			peerID = msg.GetRegisterPk().Id
+			resp := s.processRegisterPk(msg.GetRegisterPk(), remoteAddr)
 			if resp != nil {
 				if rpk := resp.GetRegisterPkResponse(); rpk != nil && rpk.GetResult() == pb.RegisterPkResponse_OK {
-					peerID = registerPK.Id
 					bindPeerWSConn(s, peerID, wsc)
 					s.registerWSPunchConn(remoteAddr, wsc)
 					notifyRegistered()
@@ -482,7 +479,6 @@ func (s *Server) handleRegisterPeerWS(msg *pb.RegisterPeer, remoteAddr string) *
 		return nil
 	} else if effectiveID != id {
 		id = effectiveID
-		msg.Id = effectiveID
 	}
 
 	existing := s.peers.Get(id)
@@ -504,13 +500,19 @@ func (s *Server) handleRegisterPeerWS(msg *pb.RegisterPeer, remoteAddr string) *
 		// Reject banned peers — do not heartbeat or respond
 		if existing.Banned {
 			log.Printf("[signal] Rejected banned WS peer heartbeat: %s from %s", id, remoteAddr)
+			s.revokeBannedPeerAccess(id, nil)
 			return nil
 		}
 		if s.rejectIfPeerSoftDeleted(id, clientHost) {
 			return nil
 		}
-		if banned, _ := s.db.IsPeerBanned(id); banned {
+		if banned, err := s.db.IsPeerBanned(id); err != nil || banned {
+			if err != nil {
+				log.Printf("[signal] Failed ban check for WS peer heartbeat %s: %v", id, err)
+				return nil
+			}
 			log.Printf("[signal] Rejected banned WS peer heartbeat: %s from %s", id, remoteAddr)
+			s.revokeBannedPeerAccess(id, nil)
 			return nil
 		}
 
@@ -522,9 +524,6 @@ func (s *Server) handleRegisterPeerWS(msg *pb.RegisterPeer, remoteAddr string) *
 
 		requestPk := len(existing.PK) == 0
 		s.db.UpdatePeerStatus(id, "ONLINE", remoteAddr)
-		if err := s.db.TouchDeviceOnlineSession(id, existing.LastReg.UTC(), config.RegTimeout); err != nil {
-			log.Printf("[signal] Failed to record WS online heartbeat for %s: %v", id, err)
-		}
 
 		return &pb.RendezvousMessage{
 			Union: &pb.RendezvousMessage_RegisterPeerResponse{
@@ -546,8 +545,13 @@ func (s *Server) handleRegisterPeerWS(msg *pb.RegisterPeer, remoteAddr string) *
 
 	// Check if this peer is banned in the database (e.g. removed from memory
 	// map after ban but trying to re-register via WS)
-	if banned, _ := s.db.IsPeerBanned(id); banned {
+	if banned, err := s.db.IsPeerBanned(id); err != nil || banned {
+		if err != nil {
+			log.Printf("[signal] Failed ban check for WS peer registration %s: %v", id, err)
+			return nil
+		}
 		log.Printf("[signal] Rejected banned WS peer registration: %s from %s", id, remoteAddr)
+		s.revokeBannedPeerAccess(id, nil)
 		return nil
 	}
 
@@ -563,9 +567,6 @@ func (s *Server) handleRegisterPeerWS(msg *pb.RegisterPeer, remoteAddr string) *
 
 	log.Printf("[signal] New WS peer registered: %s from %s", id, remoteAddr)
 	s.db.UpdatePeerStatus(id, "ONLINE", remoteAddr)
-	if err := s.db.TouchDeviceOnlineSession(id, entry.LastReg.UTC(), config.RegTimeout); err != nil {
-		log.Printf("[signal] Failed to start WS online session for %s: %v", id, err)
-	}
 	s.publishPeerOnline(id)
 
 	return &pb.RendezvousMessage{

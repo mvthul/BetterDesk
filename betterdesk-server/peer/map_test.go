@@ -6,15 +6,6 @@ import (
 	"time"
 )
 
-type testCloser struct {
-	closed bool
-}
-
-func (c *testCloser) Close() error {
-	c.closed = true
-	return nil
-}
-
 func TestMapPutGet(t *testing.T) {
 	m := NewMap()
 
@@ -52,56 +43,6 @@ func TestMapRemove(t *testing.T) {
 	}
 	if m.Get("R1") != nil {
 		t.Error("peer should be gone after remove")
-	}
-}
-
-func TestMapRenamePreservesLiveConnection(t *testing.T) {
-	m := NewMap()
-	conn := &testCloser{}
-	entry := &Entry{
-		ID:       "OLDID",
-		WSConn:   conn,
-		ConnType: ConnWS,
-		LastReg:  time.Now().Add(-time.Second),
-	}
-	m.Put(entry)
-
-	moved, ok := m.Rename("OLDID", "NEWID")
-	if !ok || moved != entry {
-		t.Fatalf("Rename = (%p, %v), want (%p, true)", moved, ok, entry)
-	}
-	if conn.closed {
-		t.Fatal("Rename closed the live WebSocket connection")
-	}
-	if m.Get("OLDID") != nil || m.Get("NEWID") != entry {
-		t.Fatal("renamed entry was not moved atomically")
-	}
-	if entry.WSConn != conn {
-		t.Fatal("Rename did not preserve the WebSocket binding")
-	}
-
-	previous := entry.LastReg
-	time.Sleep(time.Millisecond)
-	if !m.TouchWSHeartbeat(conn) {
-		t.Fatal("TouchWSHeartbeat did not find the renamed connection")
-	}
-	if !entry.LastReg.After(previous) {
-		t.Fatal("TouchWSHeartbeat did not refresh the renamed entry")
-	}
-}
-
-func TestMapRenameRejectsOccupiedTarget(t *testing.T) {
-	m := NewMap()
-	oldEntry := &Entry{ID: "OLDID", LastReg: time.Now()}
-	newEntry := &Entry{ID: "NEWID", LastReg: time.Now()}
-	m.Put(oldEntry)
-	m.Put(newEntry)
-
-	if moved, ok := m.Rename("OLDID", "NEWID"); ok || moved != nil {
-		t.Fatalf("Rename occupied target = (%v, %v), want (nil, false)", moved, ok)
-	}
-	if m.Get("OLDID") != oldEntry || m.Get("NEWID") != newEntry {
-		t.Fatal("failed Rename modified the map")
 	}
 }
 
@@ -609,5 +550,46 @@ func TestMapFindByAddrExactPort(t *testing.T) {
 	}
 	if got := m.FindByAddr(nil); got != nil {
 		t.Fatalf("nil addr must return nil, got %+v", got)
+	}
+}
+
+func TestFindAllByIP(t *testing.T) {
+	m := NewMap()
+	m.Put(&Entry{
+		ID:      "A1",
+		UDPAddr: &net.UDPAddr{IP: net.ParseIP("203.0.113.44"), Port: 50001},
+		LastReg: time.Now(),
+	})
+	m.Put(&Entry{
+		ID:       "B1",
+		IP:       "203.0.113.44:60001",
+		ConnType: ConnTCP,
+		LastReg:  time.Now(),
+	})
+	m.Put(&Entry{
+		ID:      "C1",
+		UDPAddr: &net.UDPAddr{IP: net.ParseIP("198.51.100.10"), Port: 51000},
+		LastReg: time.Now(),
+	})
+
+	got := m.FindAllByIP(net.ParseIP("203.0.113.44"))
+	if len(got) != 2 {
+		t.Fatalf("FindAllByIP = %d peers, want 2", len(got))
+	}
+	ids := map[string]bool{}
+	for _, e := range got {
+		ids[e.ID] = true
+	}
+	if !ids["A1"] || !ids["B1"] {
+		t.Fatalf("FindAllByIP ids = %v, want A1 and B1", ids)
+	}
+	if got := m.FindAllByIP(net.ParseIP("198.51.100.10")); len(got) != 1 || got[0].ID != "C1" {
+		t.Fatalf("FindAllByIP single = %+v, want C1", got)
+	}
+	if got := m.FindAllByIP(nil); got != nil {
+		t.Fatalf("FindAllByIP(nil) = %+v, want nil", got)
+	}
+	if m.CountByIP(net.ParseIP("203.0.113.44")) != 2 {
+		t.Fatalf("CountByIP should match FindAllByIP length")
 	}
 }

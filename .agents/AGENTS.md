@@ -146,3 +146,11 @@ When adding or changing translation keys in the BetterDesk Node.js console panel
 - [ ] Key added/updated in `en.json`
 - [ ] Same key path updated in the other 25 locale files
 - [ ] Nested objects (e.g. `generator.errors.*`) keep identical key sets across locales
+
+---
+
+# Real RustDesk Client Builder Update Rule
+
+If we update something for the real rustdesk client builder:
+1. Run `/root/betterdesk.sh` and select the local update option to reflect changes in the dev environment.
+2. The "Update Build Repository" step is automated and will automatically trigger as part of the local update process in `betterdesk.sh`. Ensure this step completes successfully.

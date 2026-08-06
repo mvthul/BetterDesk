@@ -753,7 +753,7 @@ class _MinimizedMonitorSwitchButton extends StatelessWidget {
         expect(workflow).toContain('Reclaim and attest hosted Linux workspace');
         expect(workflow).toContain("needs.route.outputs.runner == 'ubuntu-22.04'");
         expect(workflow).toContain('docker system prune --all --force');
-        expect(workflow).toContain('40 * 1024 * 1024 * 1024');
+        expect(workflow).toContain('30 * 1024 * 1024 * 1024');
         expect(workflow).toContain('CARGO_EXPAND_VERSION: "1.0.95"');
         expect(workflow).toContain('FLUTTER_RUST_BRIDGE_VERSION: "1.80.1"');
         expect(workflow).toContain('Install pinned Flutter Rust bridge toolchain');

@@ -717,7 +717,8 @@ class RealClientBuildService {
             // request. RustDesk builds may legitimately run for several hours;
             // keep transient provider failures recoverable until the overall
             // request is older than the provider timeout.
-            const age = Date.now() - new Date(build.queued_at || build.created_at).getTime();
+            const dateStr = build.queued_at || build.created_at || '';
+            const age = dateStr ? Date.now() - new Date(dateStr.replace(' ', 'T') + 'Z').getTime() : 0;
             if (age > PROVIDER_SYNC_FAILURE_TIMEOUT_MS) {
                 return serializeBuild(await this.applyBuildUpdate(build, {
                     status: 'failed', finishedAt: new Date().toISOString(), errorMessage: maskText(error.message),

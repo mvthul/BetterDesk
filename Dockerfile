@@ -55,7 +55,7 @@ FROM node:24-alpine
 
 LABEL maintainer="UNITRONIX"
 LABEL description="BetterDesk — All-in-One (Go Server + Node.js Console)"
-LABEL version="3.5.13"
+LABEL version="3.5.23"
 
 # Install runtime packages (retry for transient DNS failures)
 RUN apk add --no-cache \
@@ -131,7 +131,6 @@ ENV DOCKER=true
 ENV ENCRYPTED_ONLY=1
 ENV RELAY_SERVERS=
 # Billing clock / NTP — required by supervisord %(ENV_*)s (#299 / #223)
-ENV ENROLLMENT_MODE=
 ENV NTP_SERVERS=pool.ntp.org,time.google.com,time.cloudflare.com
 ENV BILLING_MAX_CLOCK_SKEW_MS=2000
 ENV BILLING_REQUIRE_SYNCED_CLOCK=1

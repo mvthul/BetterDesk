@@ -291,60 +291,6 @@ func (m *Map) Remove(id string) *Entry {
 	return e
 }
 
-// Rename moves a live peer to a new ID without closing its transport.
-//
-// ID changes are metadata updates, not disconnects. Using Remove followed by
-// Put here would close the peer's persistent TCP/WebSocket registration and
-// reinsert an entry that points at an already-closed connection. The renamed
-// device would then be able to initiate short-lived outbound requests, but it
-// could no longer receive inbound rendezvous messages.
-//
-// The second return value is false when oldID does not exist or newID is
-// already occupied. A no-op rename (oldID == newID) succeeds when the entry
-// exists.
-func (m *Map) Rename(oldID, newID string) (*Entry, bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	e, ok := m.entries[oldID]
-	if !ok {
-		return nil, false
-	}
-	if oldID == newID {
-		return e, true
-	}
-	if _, exists := m.entries[newID]; exists {
-		return nil, false
-	}
-
-	delete(m.entries, oldID)
-	e.ID = newID
-	m.entries[newID] = e
-	return e, true
-}
-
-// TouchWSHeartbeat refreshes the peer currently bound to conn. Matching by
-// connection instead of a captured ID keeps heartbeats working when a live
-// WebSocket registration is renamed by another signal/API request.
-func (m *Map) TouchWSHeartbeat(conn interface{}) bool {
-	if conn == nil {
-		return false
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, e := range m.entries {
-		if e.WSConn != conn {
-			continue
-		}
-		e.LastReg = time.Now()
-		e.MissedBeats = 0
-		e.StatusTier = StatusOnline
-		e.HeartbeatCount++
-		return true
-	}
-	return false
-}
-
 // Count returns the number of peers currently in the map.
 func (m *Map) Count() int {
 	m.mu.RLock()
@@ -599,7 +545,8 @@ func (m *Map) FindByAddr(addr *net.UDPAddr) *Entry {
 // PunchHole/RelayResponse from a decoded socket_addr. If multiple peers share
 // the same IP (behind NAT), only the first match is returned — prefer
 // exact ip:port maps (tcpPunchConns / wsPunchConns) for initiator delivery (#276).
-// Do NOT use for outbound initiator authorization — use FindByAddr (#302).
+// Do NOT use bare FindByIP for outbound initiator authorization when multiple
+// peers may share a NAT — use FindByAddr or FindAllByIP with a single-match rule (#302).
 func (m *Map) FindByIP(ip net.IP) *Entry {
 	if ip == nil {
 		return nil
@@ -629,18 +576,25 @@ func (m *Map) FindByIP(ip net.IP) *Entry {
 
 // CountByIP returns how many peers share the given public IP (UDPAddr or IP host).
 func (m *Map) CountByIP(ip net.IP) int {
+	return len(m.FindAllByIP(ip))
+}
+
+// FindAllByIP returns every peer whose public IP matches (UDPAddr or IP host).
+// Used for outbound initiator auth when exact ip:port is unavailable: a single
+// live match can authorize; multiple matches are ambiguous (same-NAT).
+func (m *Map) FindAllByIP(ip net.IP) []*Entry {
 	if ip == nil {
-		return 0
+		return nil
 	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	n := 0
+	var out []*Entry
 	for _, e := range m.entries {
 		if peerEntryMatchesIP(e, ip) {
-			n++
+			out = append(out, e)
 		}
 	}
-	return n
+	return out
 }
 
 // FindWSByIP returns the first WebSocket peer whose public IP matches.

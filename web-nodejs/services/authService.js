@@ -3,7 +3,7 @@
  * Handles user authentication, password hashing, session management
  */
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
 const crypto = require('crypto');

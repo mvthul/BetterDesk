@@ -5,7 +5,7 @@
  * Force update only when .force_password_update sentinel is present.
  */
 
-jest.mock('bcrypt', () => ({
+jest.mock('bcryptjs', () => ({
     hash: jest.fn(async () => '$2b$12$mock'),
     compare: jest.fn(async () => true)
 }));

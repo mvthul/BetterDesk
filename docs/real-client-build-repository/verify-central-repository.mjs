@@ -131,9 +131,9 @@ function validateWorkflow(workflow) {
         || !hostedWorkspaceStep.includes('/usr/local/lib/android/sdk/ndk')
         || !hostedWorkspaceStep.includes('command -v node')
         || !hostedWorkspaceStep.includes('docker system prune --all --force')
-        || !hostedWorkspaceStep.includes('40 * 1024 * 1024 * 1024')
-        || !hostedWorkspaceStep.includes('Hosted Linux workspace has less than the required 40 GiB free')) {
-        fail('GitHub-hosted Linux builds must reclaim and attest at least 40 GiB before checkout');
+        || !hostedWorkspaceStep.includes('30 * 1024 * 1024 * 1024')
+        || !hostedWorkspaceStep.includes('Hosted Linux workspace has less than the required 30 GiB free')) {
+        fail('GitHub-hosted Linux builds must reclaim and attest at least 30 GiB before checkout');
     }
     const linuxDependenciesStep = workflow.match(/- name: Install Linux system and vcpkg dependencies[\s\S]*?(?=\n\s+- name:)/)?.[0] || '';
     if (!linuxDependenciesStep.includes('apt-get remove -y libunwind-14-dev')

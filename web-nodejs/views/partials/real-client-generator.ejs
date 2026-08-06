@@ -7,9 +7,15 @@
                 <p>Configure once, then build Full Client and QuickSupport packages for every verified platform.</p>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
-                <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('github-provision-modal').classList.remove('hidden')" style="display:inline-flex; align-items:center; gap:6px;">
-                    <span class="material-icons" style="font-size:1.1em;">auto_awesome</span> Auto-Provision GitHub
-                </button>
+                <% if (typeof isGithubProvisioned !== 'undefined' && isGithubProvisioned) { %>
+                    <button type="button" id="btn-update-github-repo" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
+                        <span class="material-icons" style="font-size:1.1em;">sync</span> Update Build Repository
+                    </button>
+                <% } else { %>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('github-provision-modal').classList.remove('hidden')" style="display:inline-flex; align-items:center; gap:6px;">
+                        <span class="material-icons" style="font-size:1.1em;">auto_awesome</span> Auto-Provision GitHub
+                    </button>
+                <% } %>
                 <button type="button" class="btn btn-ghost btn-sm" data-rc-close aria-label="Close">
                     <span class="material-icons">close</span>
                 </button>
