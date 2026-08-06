@@ -1,0 +1,334 @@
+name: Custom Android Client Generator
+run-name: Custom Android Client Generator
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Build target architecture and packaging format'
+        required: true
+        type: string
+      payload_url:
+        description: 'Encrypted build configuration payload URL'
+        required: true
+        type: string
+      build_id:
+        description: 'BetterDesk build dispatch identifier'
+        required: true
+        type: string
+
+env:
+  SCITER_RUST_VERSION: "1.75"
+  RUST_VERSION: "1.75"
+  CARGO_NDK_VERSION: "3.1.2"
+  SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
+  SCITER_NASM_DEBVERSION: "2.14-1"
+  LLVM_VERSION: "15.0.6"
+  FLUTTER_VERSION: "3.24.5"
+  ANDROID_FLUTTER_VERSION: "3.24.5"
+  FLUTTER_ELINUX_VERSION: "3.16.9"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
+  ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836"
+  NDK_VERSION: "r28c"
+
+jobs:
+  setup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Decrypt and extract BetterDesk payload
+        run: |
+          node .betterdesk/decrypt-payload.mjs "${{ inputs.payload_url }}" "${{ inputs.build_id }}"
+          node .betterdesk/extract-build-input.mjs
+      - name: Upload BetterDesk Payload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bd-payload
+          path: .betterdesk-build/
+          retention-days: 1
+
+  generate-bridge-linux:
+    needs: [setup]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Download BetterDesk Payload
+        uses: actions/download-artifact@v4
+        with:
+          name: bd-payload
+          path: .betterdesk-build/
+      - name: Determine RustDesk Version
+        id: set_version
+        run: |
+          VERSION=$(cat .betterdesk-build/input/build-plan.json | jq -r '.git_ref // "master"')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Checkout rustdesk source code (tags)
+        if: ${{ env.VERSION != 'master' }}
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: refs/tags/${{ env.VERSION }}
+          submodules: recursive
+          path: rustdesk-source
+      - name: Checkout rustdesk source code (master)
+        if: ${{ env.VERSION == 'master' }}
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          submodules: recursive
+          path: rustdesk-source
+      - name: Apply BetterDesk source patches
+        run: node .betterdesk/apply-source-patches.mjs .betterdesk-build/input/build-plan.json rustdesk-source
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake curl gcc git g++ libclang-dev libgtk-3-dev llvm-dev nasm ninja-build pkg-config wget
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-unknown-linux-gnu
+          components: "rustfmt"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: bridge-ubuntu-24.04
+      - name: Install flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Install flutter rust bridge deps
+        shell: bash
+        run: |
+          cargo install cargo-expand --version 1.0.95 --locked
+          cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
+          pushd rustdesk-source/flutter && sed -i -e 's/extended_text: 14.0.0/extended_text: 13.0.0/g' pubspec.yaml && flutter pub get && popd
+      - name: Run flutter rust bridge
+        run: |
+          cd rustdesk-source
+          ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h
+          cp ./flutter/macos/Runner/bridge_generated.h ./flutter/ios/Runner/bridge_generated.h
+      - name: Upload Bridge Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-artifact
+          path: |
+            rustdesk-source/src/bridge_generated.rs
+            rustdesk-source/src/bridge_generated.io.rs
+            rustdesk-source/flutter/lib/generated_bridge.dart
+            rustdesk-source/flutter/lib/generated_bridge.freezed.dart
+            rustdesk-source/flutter/macos/Runner/bridge_generated.h
+            rustdesk-source/flutter/ios/Runner/bridge_generated.h
+          retention-days: 1
+
+  build-rustdesk-android:
+    needs: [setup, generate-bridge-linux]
+    name: build rustdesk android apk ${{ matrix.job.target }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { arch: aarch64, target: aarch64-linux-android, reltype: release, suffix: "" }
+          - { arch: armv7, target: armv7-linux-androideabi, reltype: release, suffix: "" }
+          - { arch: x86_64, target: x86_64-linux-android, reltype: release, suffix: "" }
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Download BetterDesk Payload
+        uses: actions/download-artifact@v4
+        with:
+          name: bd-payload
+          path: .betterdesk-build/
+      - name: Export Payload Envs
+        run: |
+          echo "ANDROID_SIGNING_KEY=$(cat .betterdesk-build/input/build-plan.json | jq -r '.secrets.ANDROID_SIGNING_KEY // empty')" >> $GITHUB_ENV
+          echo "ANDROID_ALIAS=$(cat .betterdesk-build/input/build-plan.json | jq -r '.secrets.ANDROID_ALIAS // empty')" >> $GITHUB_ENV
+          echo "ANDROID_KEY_STORE_PASSWORD=$(cat .betterdesk-build/input/build-plan.json | jq -r '.secrets.ANDROID_KEY_STORE_PASSWORD // empty')" >> $GITHUB_ENV
+          echo "ANDROID_KEY_PASSWORD=$(cat .betterdesk-build/input/build-plan.json | jq -r '.secrets.ANDROID_KEY_PASSWORD // empty')" >> $GITHUB_ENV
+      - name: Determine RustDesk Version
+        id: set_version
+        run: |
+          VERSION=$(cat .betterdesk-build/input/build-plan.json | jq -r '.git_ref // "master"')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Checkout rustdesk source code (tags)
+        if: ${{ env.VERSION != 'master' }}
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: refs/tags/${{ env.VERSION }}
+          submodules: recursive
+          path: rustdesk-source
+      - name: Checkout rustdesk source code (master)
+        if: ${{ env.VERSION == 'master' }}
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          submodules: recursive
+          path: rustdesk-source
+      - name: Apply BetterDesk source patches
+        run: node .betterdesk/apply-source-patches.mjs .betterdesk-build/input/build-plan.json rustdesk-source
+      - name: Download Bridge Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-artifact
+          path: rustdesk-source/
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake curl gcc-multilib git g++ g++-multilib imagemagick libayatana-appindicator3-dev libasound2-dev libc6-dev libclang-dev libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgtk-3-dev libpam0g-dev libpulse-dev libva-dev libvdpau-dev libxcb-randr0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxdo-dev libxfixes-dev llvm-dev nasm ninja-build openjdk-17-jdk-headless pkg-config tree wget potrace
+      - name: Install flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ env.ANDROID_FLUTTER_VERSION }}
+      - name: Patch flutter
+        continue-on-error: true
+        run: |
+          cd $(dirname $(dirname $(which flutter)))
+          [[ "3.24.5" == ${{env.ANDROID_FLUTTER_VERSION}} ]] && git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: true
+      - name: Setup vcpkg with Github Actions binary cache
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: /opt/artifacts/vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+      - name: Install vcpkg dependencies
+        run: |
+          cd rustdesk-source
+          case ${{ matrix.job.target }} in
+            aarch64-linux-android) ANDROID_TARGET=arm64-v8a ;;
+            armv7-linux-androideabi) ANDROID_TARGET=armeabi-v7a ;;
+            x86_64-linux-android) ANDROID_TARGET=x86_64 ;;
+          esac
+          if ! ./flutter/build_android_deps.sh "${ANDROID_TARGET}"; then
+            exit 1
+          fi
+        shell: bash
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: "rustfmt"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: rustdesk-lib-cache-android
+          key: ${{ matrix.job.target }}
+      - name: Build rustdesk lib
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cd rustdesk-source
+          rustup target add ${{ matrix.job.target }}
+          cargo install cargo-ndk --version ${{ env.CARGO_NDK_VERSION }} --locked
+          case ${{ matrix.job.target }} in
+            aarch64-linux-android)
+              ./flutter/ndk_arm64.sh
+              mkdir -p ./flutter/android/app/src/main/jniLibs/arm64-v8a
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
+            ;;
+            armv7-linux-androideabi)
+              ./flutter/ndk_arm.sh
+              mkdir -p ./flutter/android/app/src/main/jniLibs/armeabi-v7a
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
+            ;;
+            x86_64-linux-android)
+              ./flutter/ndk_x64.sh
+              mkdir -p ./flutter/android/app/src/main/jniLibs/x86_64
+              cp ./target/${{ matrix.job.target }}/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/librustdesk.so
+            ;;
+          esac
+      - name: Build rustdesk Flutter APK
+        shell: bash
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        run: |
+          cd rustdesk-source
+          export PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH
+          sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
+          sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
+          pushd flutter
+          case ${{ matrix.job.target }} in
+            aarch64-linux-android)
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm64 --split-per-abi
+              mv build/app/outputs/flutter-apk/app-arm64-v8a-${{ matrix.job.reltype }}.apk ../../rustdesk-aarch64.apk
+            ;;
+            armv7-linux-androideabi)
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-arm --split-per-abi
+              mv build/app/outputs/flutter-apk/app-armeabi-v7a-${{ matrix.job.reltype }}.apk ../../rustdesk-armv7.apk
+            ;;
+            x86_64-linux-android)
+              flutter build apk "--${{ matrix.job.reltype }}" --target-platform android-x64 --split-per-abi
+              mv build/app/outputs/flutter-apk/app-x86_64-${{ matrix.job.reltype }}.apk ../../rustdesk-x86_64.apk
+            ;;
+          esac
+          popd
+      - uses: r0adkll/sign-android-release@v1
+        name: Sign app APK
+        continue-on-error: true
+        if: env.ANDROID_SIGNING_KEY != null && env.ANDROID_SIGNING_KEY != ''
+        id: sign-rustdesk
+        with:
+          releaseDirectory: .
+          signingKeyBase64: ${{ env.ANDROID_SIGNING_KEY }}
+          alias: ${{ env.ANDROID_ALIAS }}
+          keyStorePassword: ${{ env.ANDROID_KEY_STORE_PASSWORD }}
+          keyPassword: ${{ env.ANDROID_KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "30.0.2"
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.job.arch }}
+          path: "*.apk"
+          retention-days: 1
+
+  deploy:
+    needs: [build-rustdesk-android]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Download All APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apk-*
+          merge-multiple: true
+          path: .betterdesk-build/out/
+      - name: Publish all validated packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-client-${{ inputs.build_id }}
+          path: .betterdesk-build/out/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  cleanup:
+    needs: [deploy]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Download BetterDesk Payload
+        uses: actions/download-artifact@v4
+        with:
+          name: bd-payload
+          path: .betterdesk-build/
+      - name: Ping Cleanup Endpoint
+        run: |
+          UUID=$(cat .betterdesk-build/input/build-plan.json | jq -r '.uuid // empty')
+          GENURL=$(cat .betterdesk-build/input/build-plan.json | jq -r '.secrets.GENURL // empty')
+          if [ -n "$UUID" ] && [ -n "$GENURL" ]; then
+            curl -X POST -H "Content-Type: application/json" -d "{"uuid": "$UUID"}" "$GENURL/cleanzip" || true
+          fi

@@ -15,7 +15,6 @@ const FILES = Object.freeze([
     ['betterdesk-windows.yml', '.github/workflows/betterdesk-windows.yml'],
     ['betterdesk-android.yml', '.github/workflows/betterdesk-android.yml'],
     ['betterdesk-linux.yml', '.github/workflows/betterdesk-linux.yml'],
-    ['betterdesk-macos.yml', '.github/workflows/betterdesk-macos.yml'],
 ]);
 const VENDORS = Object.freeze([
     {
