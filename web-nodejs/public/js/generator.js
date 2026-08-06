@@ -555,6 +555,7 @@
         els['gen-save-btn'].classList.add('hidden');
         
         if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.remove('hidden');
+        loadRdgenPresets();
         
         if (connectionDefaults) {
             const serverIPInput = document.getElementById('rdgen-serverIP');
@@ -864,7 +865,9 @@
         const config = {};
         const inputs = (els['gen-rdgen-form'] || document).querySelectorAll('input, select, textarea');
         inputs.forEach(input => {
-            const key = input.name || (input.id && input.id.startsWith('rdgen-') ? input.id : null);
+            const id = input.id || '';
+            if (id === 'rdgen-preset-name' || id === 'rdgen-preset-select') return;
+            const key = input.name || (id.startsWith('rdgen-') ? id : null);
             if (!key || input.type === 'file') return;
             if (input.type === 'checkbox') config[key] = input.checked;
             else if (input.type === 'radio') { if (input.checked) config[key] = input.value; }
@@ -921,7 +924,10 @@
                 const sel = document.getElementById('rdgen-preset-select');
                 const opt = sel && sel.selectedOptions[0];
                 if (!opt || !opt.dataset.config) return;
-                try { applyRdgenConfig(JSON.parse(opt.dataset.config)); } catch (_) {}
+                try {
+                    applyRdgenConfig(JSON.parse(opt.dataset.config));
+                    notify.success('Preset loaded');
+                } catch (_) {}
             });
         }
 
@@ -931,7 +937,7 @@
             btnSave.addEventListener('click', async () => {
                 const nameInput = document.getElementById('rdgen-preset-name');
                 const name = nameInput && nameInput.value.trim();
-                if (!name) { nameInput && nameInput.focus(); return; }
+                if (!name) { if (nameInput) nameInput.focus(); return; }
                 try {
                     const res = await fetch('/api/generator/rdgen/presets', {
                         method: 'POST',
@@ -941,9 +947,14 @@
                     const data = await res.json();
                     if (data.success) {
                         if (nameInput) nameInput.value = '';
+                        notify.success('Preset saved');
                         await loadRdgenPresets();
+                    } else {
+                        notify.error(data.error || 'Failed to save preset');
                     }
-                } catch (_) {}
+                } catch (err) {
+                    notify.error(err.message || 'Failed to save preset');
+                }
             });
         }
 
@@ -955,12 +966,18 @@
                 const id = sel && sel.value;
                 if (!id) return;
                 try {
-                    await fetch(`/api/generator/rdgen/presets/${id}`, {
+                    const res = await fetch(`/api/generator/rdgen/presets/${id}`, {
                         method: 'DELETE',
                         headers: { 'X-CSRF-Token': csrf() }
                     });
-                    await loadRdgenPresets();
-                } catch (_) {}
+                    const data = await res.json();
+                    if (data.success) {
+                        notify.success('Preset deleted');
+                        await loadRdgenPresets();
+                    }
+                } catch (err) {
+                    notify.error(err.message || 'Failed to delete preset');
+                }
             });
         }
 

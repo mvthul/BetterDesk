@@ -248,10 +248,13 @@ router.get('/api/generator/rdgen/presets', requireAuth, async (req, res) => {
 });
 
 // Save a preset
-router.post('/api/generator/rdgen/presets', requireAuth, express.json(), async (req, res) => {
+router.post('/api/generator/rdgen/presets', requireAuth, async (req, res) => {
     try {
-        const { name, config } = req.body;
-        if (!name || typeof config !== 'object') {
+        let { name, config } = req.body || {};
+        if (typeof config === 'string') {
+            try { config = JSON.parse(config); } catch (_) {}
+        }
+        if (!name || !config || typeof config !== 'object') {
             return res.status(400).json({ success: false, error: 'name and config are required' });
         }
         const preset = await dbAdapter.createRdgenPreset(name, JSON.stringify(config));
