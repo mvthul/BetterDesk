@@ -10,10 +10,12 @@ const FILES = Object.freeze([
     ['verify-source-revision.mjs', '.betterdesk/verify-source-revision.mjs'],
     ['apply-source-patches.mjs', '.betterdesk/apply-source-patches.mjs'],
     ['sign-custom-config.mjs', '.betterdesk/sign-custom-config.mjs'],
-    ['build-real-client.mjs', '.betterdesk/build-real-client.mjs'],
     ['validate-output.mjs', '.betterdesk/validate-output.mjs'],
     ['verify-central-repository.mjs', '.betterdesk/verify-central-repository.mjs'],
-    ['real-client-build.yml', '.github/workflows/real-client-build.yml'],
+    ['betterdesk-windows.yml', '.github/workflows/betterdesk-windows.yml'],
+    ['betterdesk-android.yml', '.github/workflows/betterdesk-android.yml'],
+    ['betterdesk-linux.yml', '.github/workflows/betterdesk-linux.yml'],
+    ['betterdesk-macos.yml', '.github/workflows/betterdesk-macos.yml'],
 ]);
 const VENDORS = Object.freeze([
     {
