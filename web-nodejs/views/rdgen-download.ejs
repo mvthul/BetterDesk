@@ -1,0 +1,266 @@
+<%
+// Public rdgen download portal — no auth required. UUID itself is the access token.
+const run = rdgenRun;
+const statusMap = {
+    success:     'ready',
+    failure:     'failed',
+    cancelled:   'failed',
+    timed_out:   'failed',
+    skipped:     'failed',
+    in_progress: 'building',
+    queued:      'building',
+    starting:    'building',
+};
+const portalStatus = statusMap[run.status] || 'building';
+
+const platformLabels = {
+    'windows':     'Windows portable (.exe)',
+    'windows-x86': 'Windows portable 32-bit (.exe)',
+    'windows-msi': 'Windows installed (.msi)',
+    'linux':       'Linux universal portable (.tar.gz)',
+    'linux-app':   'Linux portable (AppImage)',
+    'linux-deb':   'Linux Debian/Ubuntu (.deb)',
+    'linux-rpm':   'Linux Fedora/RHEL (.rpm)',
+    'android':     'Android (.apk)',
+    'macos':       'macOS (.dmg)',
+};
+const platformArch = {
+    'windows': 'X64', 'windows-x86': 'X86', 'windows-msi': 'X64',
+    'linux': 'X64', 'linux-app': 'X64', 'linux-deb': 'X64', 'linux-rpm': 'X64',
+    'android': 'ARM', 'macos': 'Universal'
+};
+const label = platformLabels[run.platform] || run.platform;
+const arch = platformArch[run.platform] || '';
+const appName = run.appname || 'RustDesk';
+const filename = run.filename || appName.toLowerCase() + '.exe';
+
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function platformIcon(platform) {
+    if (platform === 'windows' || platform === 'windows-x86' || platform === 'windows-msi') {
+        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M2 5.4 9.6 4.3v7.4H2zM10.6 4.1 22 2.5v9.2H10.6zM2 12.7h7.6v7.4L2 18.9zM10.6 12.7H22v9.2l-11.4-1.6z"/></svg>`;
+    }
+    if (platform === 'android') {
+        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84-1.3-1.3c-.2-.2-.51-.2-.71 0-.19.2-.19.51 0 .71l1.42 1.42A5.96 5.96 0 0 0 12 2c-1.5 0-2.88.55-3.94 1.44l1.42-1.42a.5.5 0 0 0 0-.71.5.5 0 0 0-.71 0l-1.3 1.3A5.96 5.96 0 0 0 6 7h12c0-1.79-.79-3.4-2.47-4.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z"/></svg>`;
+    }
+    if (platform === 'macos') {
+        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>`;
+    }
+    if (platform === 'linux-deb') {
+        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">DEB</text></svg>`;
+    }
+    if (platform === 'linux-rpm') {
+        return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">RPM</text></svg>`;
+    }
+    return `<svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M12 2 4 6v6c0 5 3.5 9.4 8 10 4.5-.6 8-5 8-10V6z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`;
+}
+%><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= esc(appName) %> — Download Custom RustDesk Client</title>
+    <meta name="description" content="Download your custom <%= esc(appName) %> RustDesk client, built and powered by BetterDesk.">
+    <link rel="stylesheet" href="/css/agent-download.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        :root { --brand-primary: #3b82f6; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .portal-logo-rdgen {
+            width: 96px; height: 96px;
+            margin: 0 auto 18px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3);
+            font-size: 44px;
+        }
+        .rdgen-badge {
+            display: inline-block;
+            background: rgba(59,130,246,0.15);
+            border: 1px solid rgba(59,130,246,0.3);
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 12px;
+            color: #93c5fd;
+            font-weight: 500;
+            margin-top: 8px;
+            letter-spacing: 0.03em;
+        }
+        .btn.btn-gh-log {
+            display: inline-block;
+            background: rgba(255,255,255,0.06);
+            color: #94a3b8;
+            padding: 8px 18px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: background 0.15s;
+        }
+        .btn.btn-gh-log:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+        .status-badge.status-pending {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(234,179,8,0.12);
+            border: 1px solid rgba(234,179,8,0.3);
+            border-radius: 8px;
+            padding: 10px 18px;
+            color: #fcd34d;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status-badge.status-failed {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 8px;
+            padding: 10px 18px;
+            color: #fca5a5;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(252,211,77,0.2);
+            border-top-color: #fcd34d;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn.btn-primary {
+            display: inline-block;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: #fff;
+            padding: 12px 28px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            box-shadow: 0 4px 14px rgba(59,130,246,0.35);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn.btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59,130,246,0.45);
+        }
+        .portal-card { transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
+        .portal-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+    </style>
+</head>
+<body>
+    <main class="portal">
+        <header class="portal-header">
+            <div class="portal-logo-rdgen">🖥️</div>
+            <h1><%= esc(appName) %></h1>
+            <div><span class="rdgen-badge">Custom RustDesk Client</span></div>
+        </header>
+
+        <section class="portal-intro">
+            <h2>Choose your platform</h2>
+            <p>Download the custom-built client for your operating system.</p>
+        </section>
+
+        <section class="portal-grid" id="rdgen-portal-grid">
+            <article class="portal-card"
+                     data-uuid="<%= esc(run.uuid) %>"
+                     data-platform="<%= esc(run.platform) %>"
+                     data-status="<%= esc(portalStatus) %>">
+                <div class="card-icon">
+                    <%- platformIcon(run.platform) %>
+                </div>
+                <h3><%= esc(label) %></h3>
+                <p class="card-arch"><%= esc(arch) %></p>
+                <div class="card-status" data-status-slot>
+                    <% if (portalStatus === 'ready') { %>
+                        <a class="btn btn-primary"
+                           id="rdgen-download-btn"
+                           href="/api/generator/rdgen/download/<%= esc(run.uuid) %>/<%= esc(filename) %>">
+                            ⬇ Download
+                        </a>
+                    <% } else if (portalStatus === 'failed') { %>
+                        <span class="status-badge status-failed">✕ Build failed</span>
+                    <% } else { %>
+                        <span class="status-badge status-pending">
+                            <span class="spinner"></span>
+                            Building…
+                        </span>
+                    <% } %>
+                </div>
+                <% if (run.log_url || (run.github_run_id && process.env.GHUSER && process.env.REPONAME)) { %>
+                    <%
+                        const logUrl = run.log_url ||
+                            `https://github.com/${process.env.GHUSER}/${process.env.REPONAME}/actions/runs/${run.github_run_id}`;
+                    %>
+                    <div style="margin-top:12px">
+                        <a class="btn btn-gh-log" href="<%= esc(logUrl) %>" target="_blank" rel="noopener">
+                            View GitHub Actions log ↗
+                        </a>
+                    </div>
+                <% } %>
+            </article>
+        </section>
+
+        <footer class="portal-footer">
+            <p>Powered by <strong>BetterDesk</strong></p>
+        </footer>
+    </main>
+
+    <script>
+    (function () {
+        const uuid = <%- JSON.stringify(run.uuid) %>;
+        const dlFilename = <%- JSON.stringify(filename) %>;
+
+        function updateCard(portalStatus) {
+            const slot = document.querySelector('[data-status-slot]');
+            const card = document.querySelector('.portal-card');
+            if (!slot) return;
+            if (portalStatus === 'ready') {
+                slot.innerHTML = `<a class="btn btn-primary" id="rdgen-download-btn" href="/api/generator/rdgen/download/${uuid}/${encodeURIComponent(dlFilename)}">⬇ Download</a>`;
+                if (card) card.dataset.status = 'ready';
+            } else if (portalStatus === 'failed') {
+                slot.innerHTML = `<span class="status-badge status-failed">✕ Build failed</span>`;
+                if (card) card.dataset.status = 'failed';
+                if (timer) { clearInterval(timer); timer = null; }
+            }
+        }
+
+        let timer = null;
+
+        async function poll() {
+            try {
+                const r = await fetch(`/api/generator/rdgen/status/${uuid}`, { credentials: 'include' });
+                if (!r.ok) return;
+                const j = await r.json();
+                if (!j || !j.found) return;
+
+                const status = j.status;
+                const portal = (status === 'success') ? 'ready'
+                    : (status === 'failure' || status === 'cancelled' || status === 'timed_out' || status === 'skipped') ? 'failed'
+                    : 'building';
+
+                updateCard(portal);
+                if (portal === 'ready' || portal === 'failed') {
+                    if (timer) { clearInterval(timer); timer = null; }
+                }
+            } catch (_) { /* network blip — keep polling */ }
+        }
+
+        const hasPending = !!document.querySelector('[data-status="building"]');
+        if (hasPending) {
+            timer = setInterval(poll, 8000);
+        }
+    })();
+    </script>
+</body>
+</html>

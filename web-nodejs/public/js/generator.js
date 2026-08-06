@@ -859,7 +859,111 @@
         });
     }
 
+    // Collect all rdgen form fields into a plain object
+    function collectRdgenConfig() {
+        const config = {};
+        const inputs = (els['gen-rdgen-form'] || document).querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            const key = input.name || (input.id && input.id.startsWith('rdgen-') ? input.id : null);
+            if (!key || input.type === 'file') return;
+            if (input.type === 'checkbox') config[key] = input.checked;
+            else if (input.type === 'radio') { if (input.checked) config[key] = input.value; }
+            else config[key] = input.value;
+        });
+        return config;
+    }
+
+    // Restore form fields from a saved config object
+    function applyRdgenConfig(config) {
+        if (!config) return;
+        Object.entries(config).forEach(([key, value]) => {
+            const el = document.getElementById(key) || document.querySelector(`[name="${key}"]`);
+            if (!el) return;
+            if (el.type === 'checkbox') el.checked = !!value;
+            else if (el.type === 'radio') el.checked = (el.value === value);
+            else el.value = value;
+        });
+        // Re-sync platform button active state
+        const platform = config['rdgen-platform'] || config.platform;
+        if (platform) {
+            document.querySelectorAll('.platform-icon-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.platform === platform);
+            });
+        }
+    }
+
+    async function loadRdgenPresets() {
+        const sel = document.getElementById('rdgen-preset-select');
+        if (!sel) return;
+        try {
+            const res = await fetch('/api/generator/rdgen/presets');
+            const data = await res.json();
+            if (!data.success) return;
+            sel.innerHTML = '<option value="">— Load a preset —</option>';
+            (data.presets || []).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                opt.dataset.config = p.config_json;
+                sel.appendChild(opt);
+            });
+        } catch (_) {}
+    }
+
     function bindRdgenEvents() {
+        // Load presets list on form open
+        loadRdgenPresets();
+
+        // Preset: Load
+        const btnLoad = document.getElementById('btn-load-preset');
+        if (btnLoad) {
+            btnLoad.addEventListener('click', () => {
+                const sel = document.getElementById('rdgen-preset-select');
+                const opt = sel && sel.selectedOptions[0];
+                if (!opt || !opt.dataset.config) return;
+                try { applyRdgenConfig(JSON.parse(opt.dataset.config)); } catch (_) {}
+            });
+        }
+
+        // Preset: Save
+        const btnSave = document.getElementById('btn-save-preset');
+        if (btnSave) {
+            btnSave.addEventListener('click', async () => {
+                const nameInput = document.getElementById('rdgen-preset-name');
+                const name = nameInput && nameInput.value.trim();
+                if (!name) { nameInput && nameInput.focus(); return; }
+                try {
+                    const res = await fetch('/api/generator/rdgen/presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf() },
+                        body: JSON.stringify({ name, config: collectRdgenConfig() })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        if (nameInput) nameInput.value = '';
+                        await loadRdgenPresets();
+                    }
+                } catch (_) {}
+            });
+        }
+
+        // Preset: Delete
+        const btnDel = document.getElementById('btn-delete-preset');
+        if (btnDel) {
+            btnDel.addEventListener('click', async () => {
+                const sel = document.getElementById('rdgen-preset-select');
+                const id = sel && sel.value;
+                if (!id) return;
+                try {
+                    await fetch(`/api/generator/rdgen/presets/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-Token': csrf() }
+                    });
+                    await loadRdgenPresets();
+                } catch (_) {}
+            });
+        }
+
         const platformBtns = document.querySelectorAll('.platform-icon-btn');
         platformBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -924,34 +1028,36 @@
                     }
 
                     if (els['rdgen-success-msg']) {
+                        const uuid = data.uuid;
+                        const portalUrl = `/rdgen/${uuid}`;
+
+                        // Show brief "dispatching" message, then transition to portal link
                         els['rdgen-success-msg'].style.display = 'block';
-                        els['rdgen-success-msg'].innerHTML = `Build started!<br>Waiting for completion...`;
-                        
-                        // Start polling
-                        const poll = setInterval(async () => {
-                            try {
-                                const sRes = await fetch('/api/generator/rdgen/status/' + data.uuid);
-                                const sData = await sRes.json();
-                                if (sData.found) {
-                                    if (sData.status === 'success') {
-                                        clearInterval(poll);
-                                        btn.disabled = false;
-                                        btn.innerHTML = originalText;
-                                        els['rdgen-success-msg'].innerHTML = `Build successful! <a href="/api/generator/rdgen/download/${data.uuid}/${data.filename}.exe" class="btn btn-sm btn-primary" style="margin-left:10px" target="_blank">Download .exe</a> <a href="/api/generator/rdgen/download/${data.uuid}/${data.filename}.msi" class="btn btn-sm btn-primary" style="margin-left:5px" target="_blank">Download .msi</a>`;
-                                    } else if (sData.status === 'failure' || sData.status === 'cancelled' || sData.status === 'timed_out' || sData.status === 'failed') {
-                                        clearInterval(poll);
-                                        btn.disabled = false;
-                                        btn.innerHTML = originalText;
-                                        els['rdgen-success-msg'].style.color = 'var(--color-danger)';
-                                        els['rdgen-success-msg'].innerHTML = `Build failed: ${sData.status}`;
-                                    } else {
-                                        const logHtml = sData.github_log_url ? ` <a href="${sData.github_log_url}" target="_blank">View GitHub Log</a>` : '';
-                                        els['rdgen-success-msg'].innerHTML = `Build in progress... (${sData.status})${logHtml}`;
-                                    }
-                                }
-                            } catch (err) {}
-                        }, 5000);
+                        els['rdgen-success-msg'].style.color = '';
+                        els['rdgen-success-msg'].innerHTML =
+                            `<span style="display:flex;align-items:center;gap:10px;">` +
+                            `<span class="material-icons rotating" style="font-size:18px;color:var(--color-accent)">sync</span>` +
+                            `Build dispatched to GitHub Actions…</span>`;
+
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+
+                        // After 2 seconds, show the portal link prominently
+                        setTimeout(() => {
+                            els['rdgen-success-msg'].innerHTML =
+                                `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:10px;">` +
+                                `<span style="color:var(--color-success);font-weight:600;">✓ Build started!</span>` +
+                                `<a href="${portalUrl}" target="_blank" rel="noopener"` +
+                                ` style="display:inline-flex;align-items:center;gap:8px;background:var(--color-primary,#3b82f6);` +
+                                `color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;` +
+                                `box-shadow:0 4px 14px rgba(59,130,246,.35);transition:transform .15s">` +
+                                `<span class="material-icons" style="font-size:18px">open_in_new</span>` +
+                                `View Build Status &amp; Download</a>` +
+                                `<span style="color:var(--color-text-muted);font-size:13px;">` +
+                                `The build page updates live when GitHub Actions completes.</span></div>`;
+                        }, 2000);
                     }
+
                 } catch (e) {
                     alert(e.message);
                     btn.disabled = false;
@@ -960,6 +1066,7 @@
             });
         }
     }
+
 
     function bindAutoProvisionEvents() {
         const btnBanner = document.getElementById('btn-auto-provision-banner');

@@ -1064,6 +1064,13 @@ function createSqliteAdapter(config) {
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
+
+            CREATE TABLE IF NOT EXISTS rdgen_presets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                config_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
         `);
         migrateAgentBundleSlugsSqlite(db);
         migrateAgentBundleProductTypesSqlite(db);
@@ -3743,6 +3750,26 @@ function createSqliteAdapter(config) {
             return this.getRdgenRun(uuid);
         },
 
+        // ---- rdgen_presets ----
+
+        async createRdgenPreset(name, configJson) {
+            const db = openAuth();
+            const row = db.prepare(
+                'INSERT INTO rdgen_presets (name, config_json) VALUES (?, ?) RETURNING *'
+            ).get(name, configJson);
+            return row || null;
+        },
+
+        async listRdgenPresets() {
+            const db = openAuth();
+            return db.prepare('SELECT * FROM rdgen_presets ORDER BY created_at DESC').all();
+        },
+
+        async deleteRdgenPreset(id) {
+            const db = openAuth();
+            db.prepare('DELETE FROM rdgen_presets WHERE id = ?').run(id);
+        },
+
         // ---- Integration Housekeeping ----
 
         async runIntegrationHousekeeping() {
@@ -4381,6 +4408,15 @@ function createPostgresAdapter() {
                 log_url TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        `);
+
+        await q(`
+            CREATE TABLE IF NOT EXISTS rdgen_presets (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                config_json TEXT NOT NULL DEFAULT '{}',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         `);
 
@@ -7147,7 +7183,28 @@ function createPostgresAdapter() {
             return this.getRdgenRun(uuid);
         },
 
+
+        // ---- rdgen_presets ----
+
+        async createRdgenPreset(name, configJson) {
+            const res = await q(
+                'INSERT INTO rdgen_presets (name, config_json) VALUES ($1, $2) RETURNING *',
+                [name, configJson]
+            );
+            return res.rows[0] || null;
+        },
+
+        async listRdgenPresets() {
+            const res = await q('SELECT * FROM rdgen_presets ORDER BY created_at DESC');
+            return res.rows;
+        },
+
+        async deleteRdgenPreset(id) {
+            await q('DELETE FROM rdgen_presets WHERE id = $1', [id]);
+        },
+
         // ---- Integration Housekeeping ----
+
 
         async runIntegrationHousekeeping() {
             await q("DELETE FROM peer_metrics WHERE created_at < NOW() - INTERVAL '7 days'");

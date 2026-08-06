@@ -14,6 +14,20 @@ const ENV_PATH = path.join(__dirname, '..', '.env');
 
 const upload = multer({ dest: rdgenService.UPLOADS_DIR });
 
+// ── Public download portal ────────────────────────────────────────────────────
+// GET /rdgen/:uuid — no auth required; UUID is the access token
+router.get('/rdgen/:uuid', async (req, res) => {
+    try {
+        const uuid = req.params.uuid;
+        if (!/^[0-9a-f-]{8,}$/i.test(uuid)) return res.status(404).send('Not found');
+        const run = await dbAdapter.getRdgenRun(uuid);
+        if (!run) return res.status(404).render('errors/404', { message: 'Build not found.' });
+        res.render('rdgen-download', { rdgenRun: run });
+    } catch (e) {
+        res.status(500).send('Server error');
+    }
+});
+
 // Helper to write env variables
 function updateEnv(key, value) {
     if (fs.existsSync(ENV_PATH)) {
@@ -108,8 +122,8 @@ router.post('/api/generator/rdgen/generate', requireAuth, upload.any(), async (r
     }
 });
 
-// 3. Status Poll
-router.get('/api/generator/rdgen/status/:uuid', requireAuth, async (req, res) => {
+// 3. Status Poll — also accessible without auth (portal page uses it for polling)
+router.get('/api/generator/rdgen/status/:uuid', async (req, res) => {
     try {
         const result = await rdgenService.getRunStatus(req.params.uuid);
         res.json(result);
@@ -203,20 +217,56 @@ router.post('/api/generator/rdgen/save_custom_client', saveUpload.single('file')
     }
 });
 
-// 9. Download custom client
-router.get('/api/generator/rdgen/download/:uuid/:filename', requireAuth, (req, res) => {
+// 9. Download custom client — public (UUID-gated, no auth required for portal links)
+router.get('/api/generator/rdgen/download/:uuid/:filename', (req, res) => {
     const uuid = req.params.uuid;
     const filename = req.params.filename;
-    
+
     // Safety check
     if (!/^[0-9a-f-]+$/i.test(uuid)) return res.status(400).send('Invalid UUID');
     if (filename.includes('..') || filename.includes('/')) return res.status(400).send('Invalid filename');
-    
+
     const filePath = path.join(os.tmpdir(), 'betterdesk-rdgen-builds', uuid, filename);
     if (fs.existsSync(filePath)) {
         res.download(filePath);
     } else {
         res.status(404).send('Not found');
+    }
+});
+
+// ── Presets ───────────────────────────────────────────────────────────────────
+
+// List saved presets
+router.get('/api/generator/rdgen/presets', requireAuth, async (req, res) => {
+    try {
+        const presets = await dbAdapter.listRdgenPresets();
+        res.json({ success: true, presets });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Save a preset
+router.post('/api/generator/rdgen/presets', requireAuth, express.json(), async (req, res) => {
+    try {
+        const { name, config } = req.body;
+        if (!name || typeof config !== 'object') {
+            return res.status(400).json({ success: false, error: 'name and config are required' });
+        }
+        const preset = await dbAdapter.createRdgenPreset(name, JSON.stringify(config));
+        res.json({ success: true, preset });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Delete a preset
+router.delete('/api/generator/rdgen/presets/:id', requireAuth, async (req, res) => {
+    try {
+        await dbAdapter.deleteRdgenPreset(req.params.id);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
