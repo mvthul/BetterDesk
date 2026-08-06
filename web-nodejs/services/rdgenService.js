@@ -10,14 +10,18 @@ const axios = require('axios');
 const { upsertEnvKey } = require('../lib/envMerge');
 const ENV_PATH = path.join(__dirname, '..', '.env');
 
+function ensureDir(dirPath) {
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true, mode: 0o777 });
+    }
+    try { fs.chmodSync(dirPath, 0o777); } catch (_) {}
+}
+
 const TEMP_DIR = path.join(os.tmpdir(), 'betterdesk-rdgen');
-if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
-}
+ensureDir(TEMP_DIR);
+
 const UPLOADS_DIR = path.join(os.tmpdir(), 'betterdesk-rdgen-uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+ensureDir(UPLOADS_DIR);
 
 async function generateCustomClient(params, myuuid, reqHost) {
     const {

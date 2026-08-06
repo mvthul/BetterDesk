@@ -1377,6 +1377,7 @@ function createSqliteAdapter(config) {
             ensureTenantTables(main);
             ensureRegistrationTables(main);
             ensureAgentBundleTables(main);
+            ensureAgentBundleTables(auth);
             ensureAuthTables(auth);
             console.log('[DB] SQLite adapter initialized');
         },
