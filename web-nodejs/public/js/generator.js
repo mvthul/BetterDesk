@@ -540,6 +540,56 @@
         els['gen-save-btn'].disabled = true;
     }
 
+    // ── Provision banner helpers ───────────────────────────────────────────────
+
+    function updateBannerProvisioned(settings) {
+        const banner   = document.getElementById('github-provision-banner');
+        const btnBanner = document.getElementById('btn-auto-provision-banner');
+        const label    = document.getElementById('github-provision-status-label');
+        if (!banner || !btnBanner) return;
+
+        const user   = settings.GHUSER || '';
+        const repo   = settings.REPONAME || 'rdgen';
+        const branch = settings.GHBRANCH || 'master';
+        const isProvisioned = !!(user && settings.GHBEARER === '********');
+
+        if (isProvisioned) {
+            // Green success state
+            banner.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.10) 0%, rgba(16,185,129,0.10) 100%)';
+            banner.style.borderColor = 'rgba(34,197,94,0.35)';
+            const iconEl = banner.querySelector('.material-icons');
+            if (iconEl) { iconEl.textContent = 'check_circle'; iconEl.style.color = '#22c55e'; }
+            const iconBox = banner.querySelector('div[style*="background: #6366f1"]') ||
+                            banner.querySelector('div[style*="background:#6366f1"]');
+            if (iconBox) iconBox.style.background = 'rgba(34,197,94,0.18)';
+            if (label) {
+                label.style.color = '#22c55e';
+                label.innerHTML = `<strong>✓ Configured:</strong> ${escapeText(user)}/${escapeText(repo)} &middot; Branch: ${escapeText(branch)}`;
+            }
+            btnBanner.style.background = '';
+            btnBanner.style.boxShadow = '0 4px 12px rgba(34,197,94,0.20)';
+            btnBanner.innerHTML = '<span class="material-icons">sync</span><span>Re-provision / Sync</span>';
+        } else {
+            // Reset to default unprovisionned state
+            banner.style.background = 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%)';
+            banner.style.borderColor = 'rgba(99,102,241,0.3)';
+            if (label) {
+                label.style.color = '';
+                label.textContent = 'Auto-fork repo, enable Actions workflows, & configure secrets in 1 click.';
+            }
+            btnBanner.style.boxShadow = '';
+            btnBanner.innerHTML = '<span class="material-icons">bolt</span><span>1-Click Provision GitHub Repo</span>';
+        }
+    }
+
+    async function checkAndUpdateProvisionBanner() {
+        try {
+            const res = await fetch('/api/generator/rdgen/settings');
+            const settings = await res.json();
+            if (settings.success) updateBannerProvisioned(settings);
+        } catch (_) {}
+    }
+
     function showRdgenForm() {
         state.currentId = 'rdgen';
         state.currentBundle = null;
@@ -557,6 +607,7 @@
         if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.remove('hidden');
         loadRdgenPresets();
         loadRdgenHistory(true);
+        checkAndUpdateProvisionBanner();
         
         if (connectionDefaults) {
             const serverIPInput = document.getElementById('rdgen-serverIP');
@@ -1123,12 +1174,14 @@
                         });
                         const pData = await pRes.json();
                         btnBanner.disabled = false;
-                        btnBanner.innerHTML = '<span class="material-icons">check_circle</span> Re-provision / Sync';
 
                         if (pData.success) {
-                            if (labelStatus) labelStatus.textContent = `✓ Repository configured: ${pData.ghUser}/${pData.repoName} (${pData.branch}). Actions & Secrets active.`;
+                            // Re-read settings so banner reflects the real stored state
+                            await checkAndUpdateProvisionBanner();
+                            notify.success(`✓ Repository configured: ${pData.ghUser}/${pData.repoName} (${pData.branch})`);
                         } else {
-                            if (labelStatus) labelStatus.textContent = `✗ Provisioning failed: ${pData.error}`;
+                            btnBanner.innerHTML = '<span class="material-icons">error_outline</span><span>Re-provision / Sync</span>';
+                            if (labelStatus) { labelStatus.style.color = '#ef4444'; labelStatus.textContent = `✗ Provisioning failed: ${pData.error}`; }
                             alert('Provisioning failed: ' + pData.error);
                         }
                     } else {
@@ -1166,9 +1219,8 @@
                     if (pData.success) {
                         if (modal) modal.classList.add('hidden');
                         if (statusDiv) statusDiv.style.display = 'none';
-                        if (labelStatus) labelStatus.textContent = `✓ Repository configured: ${pData.ghUser}/${pData.repoName} (${pData.branch}). Actions & Secrets active.`;
-                        if (btnBanner) btnBanner.innerHTML = '<span class="material-icons">check_circle</span> Re-provision / Sync';
-                        alert(`GitHub Repository successfully provisioned as ${pData.ghUser}/${pData.repoName}!`);
+                        await checkAndUpdateProvisionBanner();
+                        notify.success(`✓ Repository configured: ${pData.ghUser}/${pData.repoName} (${pData.branch})`);
                     } else {
                         if (statusText) statusText.textContent = 'Failed: ' + pData.error;
                     }
