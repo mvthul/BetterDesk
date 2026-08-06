@@ -194,8 +194,10 @@ async function generateCustomClient(params, myuuid, reqHost) {
         platform,
         filename: inputs_raw.filename,
         appname: inputs_raw.appname,
-        status: 'Starting generator...please wait'
+        status: 'queued'
     });
+
+    const dispatchedAt = new Date();
 
     try {
         const response = await axios.post(url, data, {
@@ -208,6 +210,38 @@ async function generateCustomClient(params, myuuid, reqHost) {
         });
 
         if (response.status === 204 || response.status === 200) {
+            // workflow_dispatch returns 204 with no body — we must poll for the run ID.
+            // Do this async so the HTTP response returns immediately.
+            (async () => {
+                const runsUrl = `https://api.github.com/repos/${ghUser}/${repoName}/actions/workflows/${workflow}/runs?per_page=10&event=workflow_dispatch`;
+                const ghHeaders = {
+                    'Authorization': `Bearer ${ghBearer}`,
+                    'Accept': 'application/vnd.github+json'
+                };
+                for (let attempt = 0; attempt < 12; attempt++) {
+                    await new Promise(r => setTimeout(r, 5000)); // wait 5s between polls
+                    try {
+                        const runsRes = await axios.get(runsUrl, { headers: ghHeaders });
+                        const runs = (runsRes.data.workflow_runs || []);
+                        // Find the run created within 3 minutes of our dispatch
+                        const match = runs.find(r => {
+                            const created = new Date(r.created_at);
+                            return created >= new Date(dispatchedAt.getTime() - 10000) && // max 10s before dispatch (clock skew)
+                                   created <= new Date(dispatchedAt.getTime() + 180000);   // within 3min after
+                        });
+                        if (match) {
+                            const logUrl = `https://github.com/${ghUser}/${repoName}/actions/runs/${match.id}`;
+                            await dbAdapter.updateRdgenRun(myuuid, {
+                                github_run_id: String(match.id),
+                                status: match.status === 'completed' ? (match.conclusion || 'failure') : (match.status || 'queued'),
+                                log_url: logUrl
+                            });
+                            break;
+                        }
+                    } catch (_) { /* best-effort */ }
+                }
+            })();
+
             return {
                 success: true,
                 uuid: myuuid,
