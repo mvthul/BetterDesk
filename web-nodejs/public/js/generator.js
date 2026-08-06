@@ -1233,28 +1233,64 @@
         }
         list.innerHTML = runs.map(run => {
             const isTerminal = TERMINAL_STATUSES.has(run.status);
-            const isFailed = ['failure', 'cancelled', 'timed_out'].includes(run.status);
-            const isSuccess = run.status === 'success';
-            const color = statusColor(run.status);
-            const icon = statusIcon(run.status);
-            const spinnerHtml = !isTerminal ? `<span class="material-icons rdgen-spin" style="color:${color};font-size:20px;animation:rdgen-rotate 1s linear infinite;">sync</span>` : '';
-            const logLink = run.log_url ? `<a href="${escapeText(run.log_url)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:4px 8px;">
-                <span class="material-icons" style="font-size:14px;">open_in_new</span> GitHub Logs
-            </a>` : '';
+            const isSuccess  = run.status === 'success';
+            const color      = statusColor(run.status);
+            const icon       = statusIcon(run.status);
+
+            // ── Title line: GitHub run name (#N) or fallback to filename ──────
+            const ghRunLabel = run.gh_run_name
+                ? `${escapeText(run.gh_run_name)}${run.gh_run_number ? ' <span style="opacity:.6">#' + escapeText(String(run.gh_run_number)) + '</span>' : ''}`
+                : escapeText(run.filename || 'Build');
+            const platformBadge = `<span style="color:var(--color-text-muted,#888);font-weight:400;font-size:0.8rem;"> ${escapeText(platformLabel(run.platform))}</span>`;
+
+            // ── Job progress line ──────────────────────────────────────────────
+            let progressDetail = '';
+            if (!isTerminal) {
+                if (run.gh_jobs_total > 0) {
+                    const pct = Math.round((run.gh_jobs_completed / run.gh_jobs_total) * 100);
+                    const barColor = run.gh_jobs_failed > 0 ? '#ef4444' : '#3b82f6';
+                    progressDetail = `
+                        <div style="margin-top:8px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;color:var(--color-text-muted,#888);margin-bottom:4px;">
+                                <span style="color:${barColor};font-weight:500;">${run.gh_jobs_completed}/${run.gh_jobs_total} jobs completed</span>
+                                ${run.gh_active_job ? `<span style="font-style:italic;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeText(run.gh_active_job)}">▶ ${escapeText(run.gh_active_job)}</span>` : ''}
+                            </div>
+                            <div style="width:100%;height:5px;background:#2a2a3a;border-radius:3px;overflow:hidden;">
+                                <div style="height:5px;background:${barColor};border-radius:3px;width:${pct}%;transition:width .5s ease;"></div>
+                            </div>
+                        </div>`;
+                } else {
+                    // No job count yet — indeterminate bar
+                    progressDetail = `<div style="width:100%;height:4px;background:#2a2a3a;border-radius:2px;margin-top:8px;overflow:hidden;">
+                        <div style="height:4px;background:#3b82f6;border-radius:2px;width:60%;animation:rdgen-progress 2s ease-in-out infinite alternate;"></div>
+                    </div>`;
+                }
+            }
+
+            // ── Status label ──────────────────────────────────────────────────
+            let statusLabel = run.status || 'queued';
+            if (!isTerminal && run.gh_status === 'in_progress') statusLabel = 'in progress';
+            else if (!isTerminal && run.gh_status === 'queued')  statusLabel = 'queued';
+
+            // ── Buttons ───────────────────────────────────────────────────────
+            const logLink = run.log_url
+                ? `<a href="${escapeText(run.log_url)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:4px 8px;">
+                    <span class="material-icons" style="font-size:14px;">open_in_new</span> GitHub Logs
+                  </a>` : '';
             const portalLink = `<a href="/rdgen/${escapeText(run.uuid)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:4px 8px;">
                 <span class="material-icons" style="font-size:14px;">launch</span> Build Portal
             </a>`;
             const downloads = isSuccess ? buildDownloadLinks(run) : '';
-            const progressBar = !isTerminal ? `<div style="width:100%;height:4px;background:#2a2a3a;border-radius:2px;margin-top:8px;overflow:hidden;">
-                <div style="height:4px;background:#3b82f6;border-radius:2px;width:60%;animation:rdgen-progress 2s ease-in-out infinite alternate;"></div>
-            </div>` : '';
+
             return `<div class="rdgen-history-item" data-uuid="${escapeText(run.uuid)}" style="padding:14px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);margin-bottom:10px;background:var(--color-bg,#111120);">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-                        ${!isTerminal ? spinnerHtml : `<span class="material-icons" style="color:${color};font-size:20px;">${icon}</span>`}
+                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                        ${!isTerminal
+                            ? `<span class="material-icons" style="color:${color};font-size:22px;animation:rdgen-rotate 1s linear infinite;flex-shrink:0;">sync</span>`
+                            : `<span class="material-icons" style="color:${color};font-size:22px;flex-shrink:0;">${icon}</span>`}
                         <div style="min-width:0;">
-                            <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeText(run.filename || 'Build')} <span style="color:var(--color-text-muted,#888);font-weight:400;font-size:0.8rem;">${escapeText(platformLabel(run.platform))}</span></div>
-                            <div style="font-size:0.75rem;color:${color};margin-top:2px;">${escapeText(run.status || 'queued')}</div>
+                            <div style="font-weight:600;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ghRunLabel}${platformBadge}</div>
+                            <div style="font-size:0.72rem;color:${color};margin-top:2px;text-transform:capitalize;">${escapeText(statusLabel)}</div>
                         </div>
                     </div>
                     <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -1262,12 +1298,13 @@
                         ${portalLink}
                     </div>
                 </div>
-                ${progressBar}
+                ${progressDetail}
                 ${downloads}
-                <div style="font-size:0.7rem;color:var(--color-text-muted,#888);margin-top:6px;">${escapeText(run.uuid)} · ${escapeText(run.created_at || '')}</div>
+                <div style="font-size:0.68rem;color:var(--color-text-muted,#888);margin-top:8px;opacity:.7;">${escapeText(run.uuid)} · ${escapeText((run.created_at || '').substring(0,19).replace('T',' '))}</div>
             </div>`;
         }).join('');
     }
+
 
     async function loadRdgenHistory(silent = false) {
         if (!document.getElementById('rdgen-history-list')) return;

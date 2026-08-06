@@ -274,4 +274,72 @@ router.delete('/api/generator/rdgen/presets/:id', requireAuth, async (req, res) 
     }
 });
 
+// List recent build runs, enriched with live GitHub job progress for active builds
+router.get('/api/generator/rdgen/runs', requireAuth, async (req, res) => {
+    try {
+        const rows = await dbAdapter.listRdgenRuns(20);
+        const ghUser   = process.env.GHUSER;
+        const repoName = process.env.REPONAME || 'rdgen';
+        const ghBearer = process.env.GHBEARER;
+        const TERMINAL = new Set(['success', 'failure', 'cancelled', 'timed_out', 'skipped', 'action_required']);
+
+        const runs = await Promise.all(rows.map(async run => {
+            const enriched = { ...run };
+            // Populate log_url if missing
+            if (!enriched.log_url && enriched.github_run_id && ghUser) {
+                enriched.log_url = `https://github.com/${ghUser}/${repoName}/actions/runs/${enriched.github_run_id}`;
+            }
+            // For active runs, fetch live status + job progress from GitHub
+            if (!TERMINAL.has(enriched.status) && enriched.github_run_id && ghUser && ghBearer) {
+                try {
+                    const headers = {
+                        'Authorization': `Bearer ${ghBearer}`,
+                        'Accept': 'application/vnd.github+json'
+                    };
+                    // Fetch run status
+                    const runRes = await fetch(
+                        `https://api.github.com/repos/${ghUser}/${repoName}/actions/runs/${enriched.github_run_id}`,
+                        { headers }
+                    );
+                    if (runRes.ok) {
+                        const runData = await runRes.json();
+                        enriched.gh_run_name    = runData.display_title || runData.name || null;
+                        enriched.gh_run_number  = runData.run_number || null;
+                        enriched.gh_status      = runData.status;        // queued/in_progress/completed
+                        enriched.gh_conclusion  = runData.conclusion;    // success/failure/etc or null
+                        // Sync terminal status back to DB
+                        if (runData.status === 'completed' && runData.conclusion) {
+                            await dbAdapter.updateRdgenRun(run.uuid, { status: runData.conclusion });
+                            enriched.status = runData.conclusion;
+                        }
+                    }
+                    // Fetch job-level progress
+                    const jobsRes = await fetch(
+                        `https://api.github.com/repos/${ghUser}/${repoName}/actions/runs/${enriched.github_run_id}/jobs`,
+                        { headers }
+                    );
+                    if (jobsRes.ok) {
+                        const jobsData = await jobsRes.json();
+                        const jobs = jobsData.jobs || [];
+                        const total     = jobs.length;
+                        const completed = jobs.filter(j => j.status === 'completed').length;
+                        const failed    = jobs.filter(j => j.conclusion === 'failure').length;
+                        // Find the currently running job name
+                        const activeJob = jobs.find(j => j.status === 'in_progress');
+                        enriched.gh_jobs_total     = total;
+                        enriched.gh_jobs_completed = completed;
+                        enriched.gh_jobs_failed    = failed;
+                        enriched.gh_active_job     = activeJob ? activeJob.name : null;
+                    }
+                } catch (_) { /* best-effort */ }
+            }
+            return enriched;
+        }));
+
+        res.json({ success: true, runs });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;

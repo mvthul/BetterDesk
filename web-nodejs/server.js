@@ -270,6 +270,7 @@ app.use((req, res, next) => {
 // CSRF protection — generate token for views, validate on POST/PUT/DELETE/PATCH.
 // Skip CSRF for device-facing API routes (/api/bd/*), RustDesk client API routes,
 // OIDC auth endpoints, and requests authenticated via Bearer token (desktop/mobile/API clients).
+// Also skip for rdgen server-to-server callbacks from GitHub Actions (UUID-gated, no browser session).
 app.use(csrfTokenProvider);
 app.use((req, res, next) => {
     const isBearer = req.headers.authorization && req.headers.authorization.toLowerCase().startsWith('bearer ');
@@ -279,11 +280,20 @@ app.use((req, res, next) => {
         '/api/hardware-id', '/api/currentUser', '/api/ab', '/api/peers', '/api/group',
         '/api/device-group/accessible', '/api/user/group', '/api/peer-key', '/api/software'
     ];
+    // rdgen endpoints called server-to-server by GitHub Actions — no browser cookie, UUID is the access token
+    const RDGEN_SERVER_CALLBACKS = [
+        '/api/generator/rdgen/cleanzip',
+        '/api/generator/rdgen/save_custom_client',
+        '/api/generator/rdgen/get_zip',
+        '/api/generator/rdgen/get_png',
+        '/api/generator/rdgen/generate',  // multipart POST from browser, exempt from CSRF JSON-only check
+    ];
     const isDeviceOrClientApi = req.path.startsWith('/api/bd/') ||
         req.path.startsWith('/api/auth/oidc/') ||
         RUSTDESK_CLIENT_PREFIXES.some(prefix => req.path.startsWith(prefix));
+    const isRdgenCallback = RDGEN_SERVER_CALLBACKS.some(p => req.path === p || req.path.startsWith(p));
 
-    if (isBearer || isDeviceOrClientApi) {
+    if (isBearer || isDeviceOrClientApi || isRdgenCallback) {
         return next();
     }
     doubleCsrfProtection(req, res, next);
