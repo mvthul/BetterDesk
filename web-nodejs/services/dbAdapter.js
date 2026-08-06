@@ -3735,6 +3735,11 @@ function createSqliteAdapter(config) {
             return row || null;
         },
 
+        async listRdgenRuns(limit = 20) {
+            const db = openAuth();
+            return db.prepare('SELECT * FROM rdgen_runs ORDER BY created_at DESC LIMIT ?').all(limit);
+        },
+
         async updateRdgenRun(uuid, updates) {
             const db = openAuth();
             const setClauses = [];
@@ -7165,6 +7170,11 @@ function createPostgresAdapter() {
         async getRdgenRun(uuid) {
             const res = await q('SELECT * FROM rdgen_runs WHERE uuid = $1', [uuid]);
             return res.rows[0] || null;
+        },
+
+        async listRdgenRuns(limit = 20) {
+            const res = await q('SELECT * FROM rdgen_runs ORDER BY created_at DESC LIMIT $1', [limit]);
+            return res.rows;
         },
 
         async updateRdgenRun(uuid, updates) {
