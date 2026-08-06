@@ -24,6 +24,17 @@
     gap: 12px;
 }
 
+.generator-bundle-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.generator-bundle-actions .btn {
+    width: 100%;
+    justify-content: flex-start;
+}
+
 .bundle-list {
     display: flex;
     flex-direction: column;
