@@ -556,6 +556,22 @@
         
         if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.remove('hidden');
         
+        if (connectionDefaults) {
+            const serverIPInput = document.getElementById('rdgen-serverIP');
+            const keyInput = document.getElementById('rdgen-key');
+            const apiServerInput = document.getElementById('rdgen-apiServer');
+
+            if (serverIPInput && (!serverIPInput.value || serverIPInput.value === 'localhost')) {
+                serverIPInput.value = connectionDefaults.server_host || '';
+            }
+            if (keyInput && (!keyInput.value || keyInput.value.includes('localhost'))) {
+                keyInput.value = connectionDefaults.public_key || '';
+            }
+            if (apiServerInput && (!apiServerInput.value || apiServerInput.value.includes('localhost'))) {
+                apiServerInput.value = connectionDefaults.api_server || (connectionDefaults.server_host ? `https://${connectionDefaults.server_host}` : '');
+            }
+        }
+
         document.querySelectorAll('.bundle-item').forEach(el => el.classList.remove('active'));
     }
 
@@ -780,9 +796,11 @@
             connectionDefaults = {
                 server_host: d.server_host || '',
                 use_https: d.use_https !== false,
+                public_key: d.public_key || '',
+                api_server: d.api_server || '',
             };
         } catch (_) {
-            connectionDefaults = { server_host: '', use_https: true };
+            connectionDefaults = { server_host: '', use_https: true, public_key: '', api_server: '' };
         }
     }
 

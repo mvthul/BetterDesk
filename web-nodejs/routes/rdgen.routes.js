@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 const rdgenService = require('../services/rdgenService');
+const clientConfigHost = require('../services/clientConfigHost');
 const dbAdapter = require('../services/dbAdapter').getAdapter();
 const { requireAuth } = require('../middleware/auth');
 const { upsertEnvKey } = require('../lib/envMerge');
@@ -52,14 +53,18 @@ router.put('/api/generator/rdgen/settings', requireAuth, (req, res) => {
     }
 });
 
-// 1b. 1-Click Provision GitHub Repository
 router.post('/api/generator/rdgen/provision', requireAuth, express.json(), async (req, res) => {
     try {
         const { pat, repoName, genUrl } = req.body || {};
+        const endpoints = clientConfigHost.resolveRustDeskEndpoints(req);
+        const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || req.headers['x-forwarded-port'] === '443';
+        const protocol = isHttps ? 'https' : 'http';
+        const defaultGenUrl = `${protocol}://${endpoints.host}/api/generator/rdgen`;
+
         const result = await rdgenService.provisionGithubRepo({
             pat,
             repoName,
-            genUrl: genUrl || `${req.protocol}://${req.get('host')}/api/generator/rdgen`
+            genUrl: genUrl || process.env.GENURL || defaultGenUrl
         });
         res.json(result);
     } catch (e) {

@@ -23,6 +23,8 @@ const db = require('../services/database');
 const config = require('../config/config');
 const brandingService = require('../services/brandingService');
 const conn = require('../services/agentBundleConnection');
+const clientConfigHost = require('../services/clientConfigHost');
+const { getPublicEndpointSettings } = require('../services/rustDeskPublicEndpointsService');
 const { PRODUCT_TYPES, normalizeProductType } = require('../lib/generatorBuildTypes');
 
 // Branding payloads may carry a base64-encoded logo up to 10 MB; expand the
@@ -210,13 +212,17 @@ router.get('/api/generator/bundles/:bundleId', requireAuth, requireAdmin, async 
 });
 
 router.get('/api/generator/defaults', requireAuth, requireAdmin, async (req, res) => {
+    const endpoints = clientConfigHost.resolveRustDeskEndpoints(req);
+    const publicKey = (await keyService.resolvePublicKey()) || '';
+
     res.json({
         success: true,
         data: {
-            server_host: conn.defaultServerHost(),
+            server_host: endpoints.host,
             use_https: true,
             api_port: conn.defaultApiPort(),
-            public_key: (await keyService.resolvePublicKey()) || '',
+            public_key: publicKey,
+            api_server: endpoints.api
         },
     });
 });

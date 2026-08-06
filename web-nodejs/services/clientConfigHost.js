@@ -32,6 +32,12 @@ function readPanelPublicHost() {
     return publicEndpoints.readPanelPublicHostValue();
 }
 
+function isLocalOrDummy(h) {
+    if (!h) return true;
+    const s = String(h).trim().toLowerCase();
+    return s === 'localhost' || s === 'panel.internal' || s === '127.0.0.1' || s === '::1' || s === '0.0.0.0';
+}
+
 /**
  * @param {import('express').Request} [req]
  * @param {string} [queryHost] - optional ?host= override from API caller
@@ -52,19 +58,22 @@ function resolveClientFacingHost(req, queryHost) {
     const panelHost = readPanelPublicHost();
     if (panelHost) {
         const normalized = conn.normalizeServerHost(panelHost);
-        if (normalized.valid) {
+        if (normalized.valid && !isLocalOrDummy(normalized.host)) {
             return normalized.host;
         }
     }
 
     const fromApi = conn.defaultServerHost();
-    if (fromApi) {
+    if (fromApi && !isLocalOrDummy(fromApi)) {
         return fromApi;
     }
 
     if (req) {
         const rawHost = req.headers['x-forwarded-host'] || req.headers.host || req.hostname || 'localhost';
-        return stripRequestHost(rawHost);
+        const stripped = stripRequestHost(rawHost);
+        if (stripped && !isLocalOrDummy(stripped)) {
+            return stripped;
+        }
     }
 
     return 'localhost';
