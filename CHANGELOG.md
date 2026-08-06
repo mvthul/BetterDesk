@@ -15,6 +15,89 @@
 
 ---
 
+## [3.5.23] — 2026-08-05
+
+### Fixed
+- **Console CrashLoop after event-bus connect (#353):** Node.js abort `RemoveEnvironmentCleanupHook` / `(env) != nullptr` was a native N-API lifecycle failure (not Go event-bus init). Console now shares one `better-sqlite3` handle for the main DB (`getDb` / session store / enrollment token lookup), bumps `better-sqlite3` to 13.x for Node 24 Alpine, and defers agent build workers until after listen/WS connect. Ships via panel/Docker console image update.
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.22] — 2026-08-05
+
+### Changed
+- Support Agent generator and release profiles allow **HTTP/WS** (LAN/IP) as well as HTTPS/WSS; remote-session encryption remains on the signal/relay protocol layer (RustDesk-style). Uncheck “Use HTTPS / WSS” and re-save the bundle before rebuilding.
+
+---
+
+## [3.5.21] — 2026-08-05
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.20] — 2026-08-05
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.19] — 2026-08-05
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.18] — 2026-08-05
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.17] — 2026-08-05
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.16] — 2026-08-05
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.15] — 2026-08-05
+
+### Security
+- **Dependabot dependency bumps:** `brace-expansion` → 5.0.9 (web-nodejs override), `postcss` → ≥8.5.23 (root + agent-client overrides), `quinn-proto` → 0.11.16 (RdClient Cargo.lock). Dev/build tooling and transitive deps only for postcss/quinn; brace-expansion via panel lockfile.
+- **CDAP file transfer dynamic callback (CodeQL):** validate `request_id` (string + whitelist) and use own-property lookup before invoking pending download callbacks in `cdap-filetransfer.js`. Ships via panel update (static JS).
+
+### Fixed
+- **Outbound “ID does not exist” after 3.5.12 initiator hardening (#302 residual):** stock RustDesk PunchHole/RequestRelay on a new TCP port (no login token, no shared RegisterPk session) was rejected as `initiator_not_registered` because auth required exact `ip:port` only. Restore a safe IP fallback: authorize when exactly one live peer shares the public IP; multiple live peers at that IP still refuse with `initiator_ambiguous_same_nat` (no identity inheritance). Ships via panel update (Go signal restart).
+
+### Changed
+- _(none yet)_
+
+---
+
+## [3.5.14] — 2026-08-04
+
+### Fixed
+- **Enrollment history filters & irreversible reject (#351):** Go enrollment Approve/Reject now persists `enrollment_decision_*` history so Enrollment Requests **Approved** / **Rejected** filters show past decisions. Reject & Ban creates a `peers` row when missing so the device appears under Devices → Banned. New **Allow re-enroll** clears `rejected_device_*` (and enrollment bans); Unban also clears the rejection lock. Ships via panel update (Go API restart).
+
+### Changed
+- _(none yet)_
+
+---
+
 ## [3.5.13] — 2026-08-03
 
 ### Changed
@@ -2663,3 +2746,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [3.5.11]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.10...v3.5.11
 [3.5.12]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.11...v3.5.12
 [3.5.13]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.12...v3.5.13
+[3.5.14]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.13...v3.5.14
+[3.5.15]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.14...v3.5.15
+[3.5.16]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.15...v3.5.16
+[3.5.17]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.16...v3.5.17
+[3.5.18]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.17...v3.5.18
+[3.5.19]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.18...v3.5.19
+[3.5.20]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.19...v3.5.20
+[3.5.21]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.20...v3.5.21
+[3.5.22]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.21...v3.5.22
+[3.5.23]: https://github.com/UNITRONIX/BetterDesk/compare/v3.5.22...v3.5.23

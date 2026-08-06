@@ -244,9 +244,10 @@ func (s *Server) InitOIDC() {
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 
-	// Health + info (public, no auth required)
+	// Health and public key are needed for client bootstrap. Detailed runtime
+	// stats use the same allowlist/auth policy as Prometheus metrics.
 	mux.HandleFunc("GET /api/health", s.handleHealth)
-	mux.HandleFunc("GET /api/server/stats", s.handleServerStats)
+	mux.HandleFunc("GET /api/server/stats", s.metricsGuard(s.handleServerStats))
 	mux.HandleFunc("GET /api/server/pubkey", s.handlePubKey)
 
 	// Peers (permission-based access control)
@@ -271,6 +272,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("GET /api/peers/{id}/access-policy", s.requireRole(auth.RoleOperator, s.handleGetAccessPolicy))
 	mux.HandleFunc("PUT /api/peers/{id}/access-policy", s.requireRole(auth.RoleAdmin, s.handleSaveAccessPolicy))
 	mux.HandleFunc("DELETE /api/peers/{id}/access-policy", s.requireRole(auth.RoleAdmin, s.handleDeleteAccessPolicy))
+	mux.HandleFunc("POST /api/peers/{id}/session-grant", s.requireRole(auth.RoleOperator, s.handleIssueSupportSessionGrant))
 	mux.HandleFunc("GET /api/peers/{id}/policy", s.handleGetPeerPolicy)
 
 	// Blocklist management
@@ -448,7 +450,6 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("GET /api/devices/register/status", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceRegisterStatus))
 	mux.HandleFunc("POST /api/devices/self/access-policy", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfAccessPolicy))
 	mux.HandleFunc("POST /api/devices/self/help-request", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfHelpRequest))
-	mux.HandleFunc("GET /api/devices/self/totp", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfTOTP))
 	mux.HandleFunc("POST /api/devices/self/totp", s.rateLimitPublic(s.enrollmentLimiter, s.handleDeviceSelfTOTP))
 
 	// Help requests — operator panel (raised by agents via CDAP or REST self endpoint)
@@ -481,8 +482,10 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Enrollment — operator approval (admin/operator)
 	mux.HandleFunc("GET /api/enrollment/pending", s.requireRole(auth.RoleOperator, s.handleListPendingDevices))
+	mux.HandleFunc("GET /api/enrollment/history", s.requireRole(auth.RoleOperator, s.handleListEnrollmentHistory))
 	mux.HandleFunc("POST /api/enrollment/approve/{id}", s.requireRole(auth.RoleOperator, s.handleApproveDevice))
 	mux.HandleFunc("POST /api/enrollment/reject/{id}", s.requireRole(auth.RoleOperator, s.handleRejectDevice))
+	mux.HandleFunc("POST /api/enrollment/clear-rejection/{id}", s.requireRole(auth.RoleOperator, s.handleClearEnrollmentRejection))
 
 	// LDAP configuration (server.config permission)
 	mux.HandleFunc("GET /api/auth/ldap/config", s.requirePermission(auth.PermServerConfig, s.handleGetLDAPConfig))
@@ -1388,6 +1391,9 @@ func (s *Server) handleUnbanPeer(w http.ResponseWriter, r *http.Request) {
 	if entry != nil {
 		entry.Banned = false
 	}
+
+	// Also clear enrollment rejection lock so the device can re-queue (#351).
+	s.clearEnrollmentRejectionState(id)
 
 	if s.auditLog != nil {
 		s.auditLog.Log(audit.ActionPeerUnbanned, s.remoteIP(r), id, nil)
