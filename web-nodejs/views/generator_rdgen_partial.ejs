@@ -1,0 +1,287 @@
+                    <div id="gen-rdgen-form" class="editor-form hidden">
+                        <div class="editor-grid">
+                            <div class="editor-fields rdgen-fields">
+                                <h3 class="section-title"><%= _('generator.rdgen_platform_title') %></h3>
+                                <div class="platform-icons" style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+                                    <button type="button" class="btn btn-secondary platform-icon-btn active" data-platform="windows" title="Windows 64Bit" style="position: relative;">
+                                        <span class="material-icons" style="font-size: 2rem;">window</span>
+                                        <span style="position: absolute; bottom: 2px; right: 2px; font-size: 0.6rem; font-weight: bold;">64</span>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary platform-icon-btn" data-platform="windows-x86" title="Windows 32Bit" style="position: relative;">
+                                        <span class="material-icons" style="font-size: 2rem;">window</span>
+                                        <span style="position: absolute; bottom: 2px; right: 2px; font-size: 0.6rem; font-weight: bold;">32</span>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary platform-icon-btn" data-platform="linux" title="Linux">
+                                        <span class="material-icons" style="font-size: 2rem;">desktop_windows</span>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary platform-icon-btn" data-platform="android" title="Android">
+                                        <span class="material-icons" style="font-size: 2rem;">android</span>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary platform-icon-btn" data-platform="macos" title="macOS">
+                                        <span class="material-icons" style="font-size: 2rem;">laptop_mac</span>
+                                    </button>
+                                </div>
+                                <input type="hidden" id="rdgen-platform" value="windows">
+                                
+                                <div class="form-row">
+                                    <div class="form-group" style="flex: 1;">
+                                        <label class="form-label"><%= _('generator.rdgen_version') %></label>
+                                        <select id="rdgen-version" class="form-input">
+                                            <option value="master">nightly</option>
+                                            <option value="1.4.9" selected>1.4.9</option>
+                                            <option value="1.4.8">1.4.8</option>
+                                            <option value="1.4.7">1.4.7</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label">
+                                        <input type="checkbox" id="rdgen-fix-delay" checked>
+                                        <%= _('generator.rdgen_fix_delay') %>
+                                    </label>
+                                </div>
+
+                                <h3 class="section-title"><%= _('generator.rdgen_general_title') %></h3>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-exename"><%= _('generator.rdgen_exename') %></label>
+                                    <input type="text" id="rdgen-exename" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-appname"><%= _('generator.rdgen_appname') %></label>
+                                    <input type="text" id="rdgen-appname" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label"><%= _('generator.rdgen_direction') %></label>
+                                    <div class="form-row" style="gap: 15px;">
+                                        <label class="form-label"><input type="radio" name="rdgen-direction" value="incoming"> <%= _('generator.rdgen_direction_incoming') %></label>
+                                        <label class="form-label"><input type="radio" name="rdgen-direction" value="outgoing"> <%= _('generator.rdgen_direction_outgoing') %></label>
+                                        <label class="form-label"><input type="radio" name="rdgen-direction" value="both" checked> <%= _('generator.rdgen_direction_both') %></label>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group" style="flex: 1;">
+                                        <label class="form-label"><%= _('generator.rdgen_installation') %></label>
+                                        <select id="rdgen-installation" class="form-input">
+                                            <option value="installationY" selected><%= _('generator.rdgen_installation_y') %></option>
+                                            <option value="installationN"><%= _('generator.rdgen_installation_n') %></option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="flex: 1;">
+                                        <label class="form-label"><%= _('generator.rdgen_settings') %></label>
+                                        <select id="rdgen-settings" class="form-input">
+                                            <option value="settingsY" selected><%= _('generator.rdgen_settings_y') %></option>
+                                            <option value="settingsN"><%= _('generator.rdgen_settings_n') %></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-androidappid"><%= _('generator.rdgen_androidappid') %></label>
+                                    <input type="text" id="rdgen-androidappid" class="form-input">
+                                </div>
+
+                                <h3 class="section-title"><%= _('generator.rdgen_server_title') %></h3>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-serverIP"><%= _('generator.rdgen_serverIP') %></label>
+                                    <input type="text" id="rdgen-serverIP" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-key"><%= _('generator.rdgen_key') %></label>
+                                    <input type="text" id="rdgen-key" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-apiServer"><%= _('generator.rdgen_apiServer') %></label>
+                                    <input type="text" id="rdgen-apiServer" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-urlLink"><%= _('generator.rdgen_urlLink') %></label>
+                                    <input type="text" id="rdgen-urlLink" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-downloadLink"><%= _('generator.rdgen_downloadLink') %></label>
+                                    <input type="text" id="rdgen-downloadLink" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-compname"><%= _('generator.rdgen_compname') %></label>
+                                    <input type="text" id="rdgen-compname" class="form-input">
+                                </div>
+
+                                <h3 class="section-title"><%= _('generator.rdgen_security_title') %></h3>
+                                <div class="form-group">
+                                    <label class="form-label"><%= _('generator.rdgen_passApproveMode') %></label>
+                                    <select id="rdgen-passApproveMode" class="form-input">
+                                        <option value="password"><%= _('generator.rdgen_passApproveMode_password') %></option>
+                                        <option value="click"><%= _('generator.rdgen_passApproveMode_click') %></option>
+                                        <option value="password-click" selected><%= _('generator.rdgen_passApproveMode_both') %></option>
+                                    </select>
+                                </div>
+                                <div id="rdgen-passwordRequirement" class="form-hint" style="display: none; color: var(--color-warning);">
+                                    <%= _('generator.rdgen_hidecm_password_req') %>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-permanentPassword"><%= _('generator.rdgen_permanentPassword') %></label>
+                                    <input type="password" id="rdgen-permanentPassword" class="form-input">
+                                    <p class="form-hint"><%= _('generator.rdgen_permanentPassword_hint') %></p>
+                                </div>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label"><input type="checkbox" id="rdgen-denyLan"> <%= _('generator.rdgen_denyLan') %></label>
+                                </div>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label"><input type="checkbox" id="rdgen-enableDirectIP"> <%= _('generator.rdgen_enableDirectIP') %></label>
+                                </div>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label"><input type="checkbox" id="rdgen-autoClose"> <%= _('generator.rdgen_autoClose') %></label>
+                                </div>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label"><input type="checkbox" id="rdgen-hidecm"> <%= _('generator.rdgen_hidecm') %></label>
+                                </div>
+
+                                <h3 class="section-title"><%= _('generator.rdgen_permissions_title') %></h3>
+                                <p class="form-hint"><%= _('generator.rdgen_permissions_hint') %></p>
+                                <div class="form-row">
+                                    <div class="form-group" style="flex: 1;">
+                                        <select id="rdgen-permissionsDorO" class="form-input">
+                                            <option value="default" selected><%= _('generator.rdgen_themeDorO_default') %></option>
+                                            <option value="override"><%= _('generator.rdgen_themeDorO_override') %></option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="flex: 1;">
+                                        <select id="rdgen-permissionsType" class="form-input">
+                                            <option value="custom" selected><%= _('generator.rdgen_permissionsType_custom') %></option>
+                                            <option value="full"><%= _('generator.rdgen_permissionsType_full') %></option>
+                                            <option value="view"><%= _('generator.rdgen_permissionsType_view') %></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row" style="flex-wrap: wrap; gap: 15px;">
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableKeyboard" checked> <%= _('generator.rdgen_enableKeyboard') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableClipboard" checked> <%= _('generator.rdgen_enableClipboard') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableFileTransfer" checked> <%= _('generator.rdgen_enableFileTransfer') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableAudio" checked> <%= _('generator.rdgen_enableAudio') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableTCP" checked> <%= _('generator.rdgen_enableTCP') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableRemoteRestart" checked> <%= _('generator.rdgen_enableRemoteRestart') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableRecording" checked> <%= _('generator.rdgen_enableRecording') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableBlockingInput" checked> <%= _('generator.rdgen_enableBlockingInput') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableRemoteModi"> <%= _('generator.rdgen_enableRemoteModi') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enablePrinter" checked> <%= _('generator.rdgen_enablePrinter') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableCamera" checked> <%= _('generator.rdgen_enableCamera') %></label>
+                                    </div>
+                                    <div class="form-group form-group-checkbox" style="min-width: 200px;">
+                                        <label class="form-label"><input type="checkbox" id="rdgen-enableTerminal" checked> <%= _('generator.rdgen_enableTerminal') %></label>
+                                    </div>
+                                </div>
+
+                                <h3 class="section-title"><%= _('generator.rdgen_visual_title') %></h3>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-iconfile"><%= _('generator.rdgen_iconfile') %></label>
+                                    <input type="file" id="rdgen-iconfile" class="form-input" accept="image/png">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-logofile"><%= _('generator.rdgen_logofile') %></label>
+                                    <input type="file" id="rdgen-logofile" class="form-input" accept="image/png">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-privacyfile"><%= _('generator.rdgen_privacyfile') %></label>
+                                    <input type="file" id="rdgen-privacyfile" class="form-input" accept="image/png">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group" style="flex: 1;">
+                                        <label class="form-label"><%= _('generator.rdgen_theme') %></label>
+                                        <select id="rdgen-theme" class="form-input">
+                                            <option value="light"><%= _('generator.rdgen_theme_light') %></option>
+                                            <option value="dark"><%= _('generator.rdgen_theme_dark') %></option>
+                                            <option value="system" selected><%= _('generator.rdgen_theme_system') %></option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="flex: 1;">
+                                        <label class="form-label">&nbsp;</label>
+                                        <select id="rdgen-themeDorO" class="form-input">
+                                            <option value="default" selected><%= _('generator.rdgen_themeDorO_default') %></option>
+                                            <option value="override"><%= _('generator.rdgen_themeDorO_override') %></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <p class="form-hint"><%= _('generator.rdgen_themeDorO_hint') %></p>
+                                
+                                <h3 class="section-title"><%= _('generator.rdgen_code_changes_title') %></h3>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label"><input type="checkbox" id="rdgen-xOffline"> <%= _('generator.rdgen_xOffline') %></label>
+                                </div>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label"><input type="checkbox" id="rdgen-removeNewVersionNotif"> <%= _('generator.rdgen_removeNewVersionNotif') %></label>
+                                </div>
+
+                                <h3 class="section-title"><%= _('generator.rdgen_other_title') %></h3>
+                                <div class="form-group form-group-checkbox">
+                                    <label class="form-label"><input type="checkbox" id="rdgen-removeWallpaper" checked> <%= _('generator.rdgen_removeWallpaper') %></label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-defaultManual"><%= _('generator.rdgen_defaultManual') %></label>
+                                    <textarea id="rdgen-defaultManual" class="form-input" rows="4"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="rdgen-overrideManual"><%= _('generator.rdgen_overrideManual') %></label>
+                                    <textarea id="rdgen-overrideManual" class="form-input" rows="4"></textarea>
+                                </div>
+                                
+                                <div class="form-group" style="margin-top: 20px;">
+                                    <button type="button" id="rdgen-generate-btn" class="btn btn-primary" style="width: 100%;">
+                                        <span class="material-icons">rocket_launch</span>
+                                        <%= _('generator.rdgen_generate_btn') %>
+                                    </button>
+                                </div>
+                                <div id="rdgen-success-msg" class="form-hint" style="display: none; color: var(--color-success); font-weight: bold; text-align: center; margin-top: 10px;">
+                                    <%= _('generator.rdgen_mock_success') %>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+<style>
+.platform-icon-btn {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background-color: var(--color-surface, #f8f9fa);
+    color: var(--color-text-muted, #6c757d);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.platform-icon-btn:hover {
+    background-color: var(--color-border, #e9ecef);
+}
+.platform-icon-btn.active {
+    border-color: var(--color-primary, #0d6efd);
+    color: var(--color-primary, #0d6efd);
+    background-color: transparent;
+}
+.rdgen-fields .section-title {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border, #dee2e6);
+}
+</style>

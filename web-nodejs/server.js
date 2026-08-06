@@ -348,7 +348,7 @@ app.use((req, res, next) => {
 
 // 500 Server Error
 app.use((err, req, res, next) => {
-    logger.error('Server error:', err);
+    logger.error('Server error:', err.stack || err.message || err);
     
     res.status(err.status || 500);
     

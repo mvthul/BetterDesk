@@ -61,7 +61,8 @@
          'gen-logo', 'gen-logo-clear', 'gen-primary', 'gen-accent', 'gen-bg', 'gen-surface', 'gen-text', 'gen-text-muted', 'gen-status-ready', 'gen-header-text', 'gen-lang', 'gen-unattended',
          'gen-download-info', 'gen-download-url', 'gen-copy-link', 'gen-open-link',
          'gen-preview', 'gen-prev-body-logo', 'gen-prev-name', 'gen-prev-text', 'gen-prev-pw-row', 'gen-prev-contact',
-         'gen-validation-errors'
+         'gen-validation-errors',
+         'gen-new-rdgen', 'gen-rdgen-form', 'rdgen-platform', 'rdgen-hidecm', 'rdgen-passwordRequirement', 'rdgen-passApproveMode', 'rdgen-permanentPassword', 'rdgen-generate-btn', 'rdgen-success-msg'
         ].forEach(id => { els[id] = $(id); });
     }
 
@@ -523,16 +524,39 @@
 
     function showEditor() {
         els['gen-empty-state'].classList.add('hidden');
+        if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.add('hidden');
         els['gen-editor-form'].classList.remove('hidden');
+        els['gen-save-btn'].classList.remove('hidden');
     }
 
     function hideEditor() {
         els['gen-empty-state'].classList.remove('hidden');
         els['gen-editor-form'].classList.add('hidden');
+        if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.add('hidden');
         els['gen-revoke-btn'].classList.add('hidden');
         els['gen-delete-btn'].classList.add('hidden');
         els['gen-download-info'].classList.add('hidden');
+        els['gen-save-btn'].classList.remove('hidden');
         els['gen-save-btn'].disabled = true;
+    }
+
+    function showRdgenForm() {
+        state.currentId = 'rdgen';
+        state.currentBundle = null;
+        state.productType = 'rdgen';
+        stopBuildsPoll();
+        
+        els['gen-editor-title'].innerHTML = `<span class="material-icons">handyman</span> ${escapeText(t('generator.rdgen_form_title', 'RustDesk Custom Client Builder'))}`;
+        
+        els['gen-empty-state'].classList.add('hidden');
+        els['gen-editor-form'].classList.add('hidden');
+        els['gen-revoke-btn'].classList.add('hidden');
+        els['gen-delete-btn'].classList.add('hidden');
+        els['gen-save-btn'].classList.add('hidden');
+        
+        if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.remove('hidden');
+        
+        document.querySelectorAll('.bundle-item').forEach(el => el.classList.remove('active'));
     }
 
     function setEditorForNew(productType) {
@@ -781,6 +805,8 @@
         if (supportBtn) supportBtn.addEventListener('click', () => setEditorForNew('support-agent'));
         const rdBtn = $('gen-new-rdclient');
         if (rdBtn) rdBtn.addEventListener('click', () => setEditorForNew('rdclient'));
+        const rdgenBtn = $('gen-new-rdgen');
+        if (rdgenBtn) rdgenBtn.addEventListener('click', showRdgenForm);
         els['gen-save-btn'].addEventListener('click', saveBundle);
         els['gen-rebuild-btn'].addEventListener('click', rebuildAllBuilds);
         els['gen-revoke-btn'].addEventListener('click', toggleRevoke);
@@ -815,10 +841,49 @@
         });
     }
 
+    function bindRdgenEvents() {
+        const platformBtns = document.querySelectorAll('.platform-icon-btn');
+        platformBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                platformBtns.forEach(b => b.classList.remove('active'));
+                const target = e.currentTarget;
+                target.classList.add('active');
+                if (els['rdgen-platform']) {
+                    els['rdgen-platform'].value = target.dataset.platform;
+                }
+            });
+        });
+
+        if (els['rdgen-hidecm']) {
+            els['rdgen-hidecm'].addEventListener('change', function() {
+                if (this.checked) {
+                    els['rdgen-passwordRequirement'].style.display = 'block';
+                    if (els['rdgen-permanentPassword']) els['rdgen-permanentPassword'].focus();
+                    if (els['rdgen-passApproveMode']) els['rdgen-passApproveMode'].value = 'password';
+                } else {
+                    els['rdgen-passwordRequirement'].style.display = 'none';
+                    if (els['rdgen-passApproveMode']) els['rdgen-passApproveMode'].value = 'password-click';
+                }
+            });
+        }
+        
+        if (els['rdgen-generate-btn']) {
+            els['rdgen-generate-btn'].addEventListener('click', () => {
+                if (els['rdgen-success-msg']) {
+                    els['rdgen-success-msg'].style.display = 'block';
+                    setTimeout(() => {
+                        els['rdgen-success-msg'].style.display = 'none';
+                    }, 3000);
+                }
+            });
+        }
+    }
+
     async function init() {
         cacheEls();
         if (!els['gen-bundle-list']) return;
         bindEvents();
+        bindRdgenEvents();
         await loadConnectionDefaults();
         await loadPlatformLabels();
         loadToolchainStatus().catch(() => {});
