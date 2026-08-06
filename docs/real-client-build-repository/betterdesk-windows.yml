@@ -1,6 +1,8 @@
 name: Custom Windows Client Generator
-run-name: Custom Windows Client Generator
+run-name: BetterDesk Real Client ${{ github.event.client_payload.build_id || inputs.build_id }} - ${{ github.event.client_payload.target_id || inputs.target }}
 on:
+  repository_dispatch:
+    types: [windows-x64-exe, windows-x64-msi]
   workflow_dispatch:
     inputs:
       target:
@@ -77,7 +79,7 @@ jobs:
         
       - name: Decrypt and extract BetterDesk payload
         run: |
-          node .betterdesk/decrypt-payload.mjs "${{ inputs.payload_url }}" "${{ inputs.build_id }}"
+          node .betterdesk/decrypt-payload.mjs "${{ github.event.client_payload.payload_url || inputs.payload_url }}" "${{ github.event.client_payload.build_id || inputs.build_id }}"
           node .betterdesk/extract-build-input.mjs
           # Apply source patches early since they modify the source tree
           node .betterdesk/apply-source-patches.mjs .betterdesk-build/input/build-plan.json rustdesk-source
@@ -597,7 +599,7 @@ jobs:
       - name: Validate and Move Output
         run: |
           mkdir -p .betterdesk-build/out
-          node .betterdesk/validate-output.mjs "${{ inputs.target }}" .betterdesk-build/out || true
+          node .betterdesk/validate-output.mjs "${{ github.event.client_payload.target_id || inputs.target }}" .betterdesk-build/out || true
           # Fallback if validate-output fails or misses the file (since rdgen might output it differently)
           find rustdesk-source -maxdepth 1 -name "*.exe" -exec cp {} .betterdesk-build/out/ \; || true
           find rustdesk-source -maxdepth 1 -name "*.msi" -exec cp {} .betterdesk-build/out/ \; || true
@@ -607,7 +609,7 @@ jobs:
       - name: Publish one validated package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: real-client-${{ inputs.build_id }}
+          name: real-client-${{ github.event.client_payload.build_id || inputs.build_id }}
           path: .betterdesk-build/out/*
           if-no-files-found: error
           retention-days: 1

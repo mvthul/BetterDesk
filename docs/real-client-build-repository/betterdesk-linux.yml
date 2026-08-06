@@ -1,6 +1,8 @@
 name: Custom Linux Client Generator
-run-name: Custom Linux Client Generator
+run-name: BetterDesk Real Client ${{ github.event.client_payload.build_id || inputs.build_id }} - ${{ github.event.client_payload.target_id || inputs.target }}
 on:
+  repository_dispatch:
+    types: [linux-x64-deb, linux-x64-appimage, linux-x64-flatpak, linux-arm64-deb, linux-arm64-appimage, linux-arm64-flatpak]
   workflow_dispatch:
     inputs:
       target:
@@ -46,7 +48,7 @@ jobs:
 
   build-rustdesk-linux:
     name: build rustdesk linux ${{ matrix.job.target }}
-    if: contains(inputs.target, matrix.job.bd_arch)
+    if: contains(github.event.client_payload.target_id || inputs.target, matrix.job.bd_arch)
     runs-on: ${{ matrix.job.on }}
     strategy:
       fail-fast: false
@@ -77,7 +79,7 @@ jobs:
         
       - name: Decrypt and extract BetterDesk payload
         run: |
-          node .betterdesk/decrypt-payload.mjs "${{ inputs.payload_url }}" "${{ inputs.build_id }}"
+          node .betterdesk/decrypt-payload.mjs "${{ github.event.client_payload.payload_url || inputs.payload_url }}" "${{ github.event.client_payload.build_id || inputs.build_id }}"
           node .betterdesk/extract-build-input.mjs
           node .betterdesk/apply-source-patches.mjs .betterdesk-build/input/build-plan.json rustdesk-source
 
@@ -593,14 +595,14 @@ jobs:
       - name: Validate and Move Output
         run: |
           mkdir -p .betterdesk-build/out
-          node .betterdesk/validate-output.mjs "${{ inputs.target }}" .betterdesk-build/out || true
+          node .betterdesk/validate-output.mjs "${{ github.event.client_payload.target_id || inputs.target }}" .betterdesk-build/out || true
           find ./output -maxdepth 1 -name "*.deb" -exec cp {} .betterdesk-build/out/ \; || true
 
       - name: Publish one validated package
-        if: endsWith(inputs.target, '-deb')
+        if: endsWith(github.event.client_payload.target_id || inputs.target, '-deb')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: real-client-${{ inputs.build_id }}
+          name: real-client-${{ github.event.client_payload.build_id || inputs.build_id }}
           path: .betterdesk-build/out/*
           if-no-files-found: error
           retention-days: 1
@@ -608,7 +610,7 @@ jobs:
 
   build-appimage:
     name: Build appimage ${{ matrix.job.target }}
-    if: endsWith(inputs.target, '-appimage') && contains(inputs.target, matrix.job.bd_arch)
+    if: endsWith(github.event.client_payload.target_id || inputs.target, '-appimage') && contains(github.event.client_payload.target_id || inputs.target, matrix.job.bd_arch)
     needs: [build-rustdesk-linux]
     runs-on: ubuntu-22.04
     strategy:
@@ -623,7 +625,7 @@ jobs:
         
       - name: Decrypt and extract BetterDesk payload
         run: |
-          node .betterdesk/decrypt-payload.mjs "${{ inputs.payload_url }}" "${{ inputs.build_id }}"
+          node .betterdesk/decrypt-payload.mjs "${{ github.event.client_payload.payload_url || inputs.payload_url }}" "${{ github.event.client_payload.build_id || inputs.build_id }}"
           node .betterdesk/extract-build-input.mjs
           node .betterdesk/apply-source-patches.mjs .betterdesk-build/input/build-plan.json rustdesk-source
 
@@ -710,13 +712,13 @@ jobs:
       - name: Validate and Move Output
         run: |
           mkdir -p .betterdesk-build/out
-          node .betterdesk/validate-output.mjs "${{ inputs.target }}" .betterdesk-build/out || true
+          node .betterdesk/validate-output.mjs "${{ github.event.client_payload.target_id || inputs.target }}" .betterdesk-build/out || true
           find ./appimage -maxdepth 1 -name "*.AppImage" -exec cp {} .betterdesk-build/out/ \; || true
 
       - name: Publish one validated package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: real-client-${{ inputs.build_id }}
+          name: real-client-${{ github.event.client_payload.build_id || inputs.build_id }}
           path: .betterdesk-build/out/*
           if-no-files-found: error
           retention-days: 1
@@ -816,13 +818,13 @@ jobs:
       - name: Validate and Move Output
         run: |
           mkdir -p .betterdesk-build/out
-          node .betterdesk/validate-output.mjs "${{ inputs.target }}" .betterdesk-build/out || true
+          node .betterdesk/validate-output.mjs "${{ github.event.client_payload.target_id || inputs.target }}" .betterdesk-build/out || true
           find ./flatpak -maxdepth 1 -name "*.flatpak" -exec cp {} .betterdesk-build/out/ \; || true
 
       - name: Publish one validated package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: real-client-${{ inputs.build_id }}
+          name: real-client-${{ github.event.client_payload.build_id || inputs.build_id }}
           path: .betterdesk-build/out/*
           if-no-files-found: error
           retention-days: 1

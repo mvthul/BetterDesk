@@ -12,9 +12,7 @@ const TARGETS = Object.freeze([
     { id: 'linux-arm64-deb', platform: 'linux', arch: 'aarch64', package: 'deb', label: 'Linux ARM64 (DEB)' },
     { id: 'linux-arm64-appimage', platform: 'linux', arch: 'aarch64', package: 'appimage', label: 'Linux ARM64 (AppImage)' },
     { id: 'linux-arm64-flatpak', platform: 'linux', arch: 'aarch64', package: 'flatpak', label: 'Linux ARM64 (Flatpak)' },
-    { id: 'android-arm64-apk', platform: 'android', arch: 'aarch64', package: 'apk', label: 'Android ARM64 (APK)' },
-    { id: 'android-armv7-apk', platform: 'android', arch: 'armv7', package: 'apk', label: 'Android ARMv7 (APK)' },
-    { id: 'android-x64-apk', platform: 'android', arch: 'x86_64', package: 'apk', label: 'Android x86_64 (APK)' },
+    { id: 'android-apk', platform: 'android', arch: 'unified', package: 'zip', label: 'Android (Unified ZIP)' },
     { id: 'macos-x64-dmg', platform: 'macos', arch: 'x86_64', package: 'dmg', label: 'macOS Intel (DMG)' },
     { id: 'macos-arm64-dmg', platform: 'macos', arch: 'aarch64', package: 'dmg', label: 'macOS Apple Silicon (DMG)' },
 ]);

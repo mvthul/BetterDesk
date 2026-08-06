@@ -207,7 +207,7 @@ class GithubProvisionService {
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_PAYLOAD_PUBLIC_KEY', rsaPublicKeyBase64);
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_WORKFLOW_COMMIT', workflowCommit);
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_WORKFLOWS', '{"linux":"betterdesk-linux.yml","windows":"betterdesk-windows.yml","android":"betterdesk-android.yml","macos":"betterdesk-macos.yml"}');
-            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_MATRIX', '{"windows-x64-exe":["1.4.9"],"windows-x64-msi":["1.4.9"],"linux-x64-deb":["1.4.9"],"linux-x64-appimage":["1.4.9"],"linux-x64-flatpak":["1.4.9"],"linux-arm64-deb":["1.4.9"],"linux-arm64-appimage":["1.4.9"],"linux-arm64-flatpak":["1.4.9"],"android-arm64-apk":["1.4.9"],"android-armv7-apk":["1.4.9"],"android-x64-apk":["1.4.9"],"macos-x64-dmg":["1.4.9"],"macos-arm64-dmg":["1.4.9"]}');
+            envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_MATRIX', '{"windows-x64-exe":["1.4.9"],"windows-x64-msi":["1.4.9"],"linux-x64-deb":["1.4.9"],"linux-x64-appimage":["1.4.9"],"linux-x64-flatpak":["1.4.9"],"linux-arm64-deb":["1.4.9"],"linux-arm64-appimage":["1.4.9"],"linux-arm64-flatpak":["1.4.9"],"android-apk":["1.4.9"],"macos-x64-dmg":["1.4.9"],"macos-arm64-dmg":["1.4.9"]}');
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_GITHUB_REVISIONS', '{"1.4.9":"6c578292e8ebbbec708b76986ba8c4bc7c509747"}');
             envContent = upsertEnvKey(envContent, 'REAL_CLIENT_PUBLIC_BASE_URL', payloadOrigin);
             

@@ -1,6 +1,8 @@
 name: Custom Android Client Generator
-run-name: Custom Android Client Generator
+run-name: BetterDesk Real Client ${{ github.event.client_payload.build_id || inputs.build_id }} - ${{ github.event.client_payload.target_id || inputs.target }}
 on:
+  repository_dispatch:
+    types: [android-apk]
   workflow_dispatch:
     inputs:
       target:
@@ -39,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Decrypt and extract BetterDesk payload
         run: |
-          node .betterdesk/decrypt-payload.mjs "${{ inputs.payload_url }}" "${{ inputs.build_id }}"
+          node .betterdesk/decrypt-payload.mjs "${{ github.event.client_payload.payload_url || inputs.payload_url }}" "${{ github.event.client_payload.build_id || inputs.build_id }}"
           node .betterdesk/extract-build-input.mjs
       - name: Upload BetterDesk Payload Artifact
         uses: actions/upload-artifact@v4
@@ -307,7 +309,7 @@ jobs:
       - name: Publish all validated packages
         uses: actions/upload-artifact@v4
         with:
-          name: real-client-${{ inputs.build_id }}
+          name: real-client-${{ github.event.client_payload.build_id || inputs.build_id }}
           path: .betterdesk-build/out/*
           if-no-files-found: error
           retention-days: 1

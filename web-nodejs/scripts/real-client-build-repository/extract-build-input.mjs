@@ -11,9 +11,7 @@ const TARGETS = Object.freeze({
     'linux-arm64-deb': { platform: 'linux', arch: 'aarch64', package: 'deb' },
     'linux-arm64-appimage': { platform: 'linux', arch: 'aarch64', package: 'appimage' },
     'linux-arm64-flatpak': { platform: 'linux', arch: 'aarch64', package: 'flatpak' },
-    'android-arm64-apk': { platform: 'android', arch: 'aarch64', package: 'apk' },
-    'android-armv7-apk': { platform: 'android', arch: 'armv7', package: 'apk' },
-    'android-x64-apk': { platform: 'android', arch: 'x86_64', package: 'apk' },
+    'android-apk': { platform: 'android', arch: 'unified', package: 'zip' },
     'macos-x64-dmg': { platform: 'macos', arch: 'x86_64', package: 'dmg' },
     'macos-arm64-dmg': { platform: 'macos', arch: 'aarch64', package: 'dmg' },
 });

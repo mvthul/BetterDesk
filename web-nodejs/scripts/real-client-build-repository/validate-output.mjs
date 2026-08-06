@@ -6,7 +6,7 @@ const extensions = {
     'windows-x64-exe': '.exe', 'windows-x64-msi': '.msi', 'windows-x86-exe': '.exe',
     'linux-x64-deb': '.deb', 'linux-x64-appimage': '.appimage', 'linux-x64-flatpak': '.flatpak',
     'linux-arm64-deb': '.deb', 'linux-arm64-appimage': '.appimage', 'linux-arm64-flatpak': '.flatpak',
-    'android-arm64-apk': '.apk', 'android-armv7-apk': '.apk', 'android-x64-apk': '.apk',
+    'android-apk': '.zip',
     'macos-x64-dmg': '.dmg', 'macos-arm64-dmg': '.dmg',
 };
 const expected = extensions[target];
