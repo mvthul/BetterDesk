@@ -34,15 +34,21 @@ function isTruthy(v) {
 }
 
 async function generateCustomClient(params, myuuid, reqHost) {
+    const server = params.server || params.serverIP || '';
+    const key = params.key || '';
+    const apiServer = params.apiServer || '';
+    const filename = params.filename || params.exename || 'rustdesk';
+    const permPass = params.permPass || params.permanentPassword || '';
+
     const {
-        platform, server, key, apiServer,
+        platform,
         iconlink_url, iconlink_uuid, iconlink_file,
         logolink_url, logolink_uuid, logolink_file,
         privacylink_url, privacylink_uuid, privacylink_file,
         appname, urlLink, downloadLink, delayFix,
-        xOffline, removeNewVersionNotif, compname, androidappid, filename,
+        xOffline, removeNewVersionNotif, compname, androidappid,
         selfhosted,
-        direction, installation, settings, permPass, theme, themeDorO,
+        direction, installation, settings, theme, themeDorO,
         denyLan, enableDirectIP, autoClose, permissionsDorO, permissionsType,
         enableKeyboard, enableClipboard, enableFileTransfer, enableAudio, enableTCP,
         enableRemoteRestart, enableRecording, enableBlockingInput, enableRemoteModi,
@@ -60,6 +66,9 @@ async function generateCustomClient(params, myuuid, reqHost) {
     if (!ghUser || !ghBearer || !zipPassword) {
         throw new Error('GitHub Integration is not fully configured (GHUSER, GHBEARER, ZIP_PASSWORD).');
     }
+
+    console.log(`[rdgenService] [${myuuid}] === STEP 1: Incoming Build Request Parameters ===`);
+    console.log(JSON.stringify(params, null, 2));
 
     const isTrue = (v) => isTruthy(v);
 
@@ -124,8 +133,8 @@ async function generateCustomClient(params, myuuid, reqHost) {
         });
     }
 
-    const customJsonStr = JSON.stringify(decodedCustom, null, 2);
-    console.log(`[rdgenService] [${myuuid}] Generated custom.txt JSON payload:\n${customJsonStr}`);
+    console.log(`[rdgenService] [${myuuid}] === STEP 2: Decoded custom.txt JSON Payload ===`);
+    console.log(JSON.stringify(decodedCustom, null, 2));
 
     const customBase64 = Buffer.from(JSON.stringify(decodedCustom)).toString('base64');
 
@@ -157,7 +166,8 @@ async function generateCustomClient(params, myuuid, reqHost) {
         filename: filename || 'rustdesk'
     };
 
-    console.log(`[rdgenService] [${myuuid}] Created secrets.json metadata for dispatch (platform: ${platform})`);
+    console.log(`[rdgenService] [${myuuid}] === STEP 3: Complete inputs_raw (secrets.json metadata) ===`);
+    console.log(JSON.stringify(inputs_raw, null, 2));
 
     const zipFilename = `secrets_${myuuid}.zip`;
     const zipPath = path.join(TEMP_DIR, zipFilename);
