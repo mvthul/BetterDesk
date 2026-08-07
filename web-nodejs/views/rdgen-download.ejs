@@ -280,7 +280,7 @@ const isWaiting = !isSuccess && !isFailed;
     <% } %>
 
     <script id="buildConfig" type="application/json"><%- JSON.stringify({ platform, uuid, filename, isWaiting }) %></script>
-    <script>
+    <script nonce="<%= typeof cspNonce !== 'undefined' ? cspNonce : '' %>">
     (function () {
         const buildConfig = JSON.parse(document.getElementById('buildConfig').textContent);
         const { platform, uuid, filename, isWaiting } = buildConfig;
