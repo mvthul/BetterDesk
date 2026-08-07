@@ -124,6 +124,9 @@ async function generateCustomClient(params, myuuid, reqHost) {
         });
     }
 
+    const customJsonStr = JSON.stringify(decodedCustom, null, 2);
+    console.log(`[rdgenService] [${myuuid}] Generated custom.txt JSON payload:\n${customJsonStr}`);
+
     const customBase64 = Buffer.from(JSON.stringify(decodedCustom)).toString('base64');
 
     const inputs_raw = {
@@ -153,6 +156,8 @@ async function generateCustomClient(params, myuuid, reqHost) {
         androidappid: androidappid || 'com.carriez.rustdesk',
         filename: filename || 'rustdesk'
     };
+
+    console.log(`[rdgenService] [${myuuid}] Created secrets.json metadata for dispatch (platform: ${platform})`);
 
     const zipFilename = `secrets_${myuuid}.zip`;
     const zipPath = path.join(TEMP_DIR, zipFilename);
