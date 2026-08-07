@@ -23,6 +23,16 @@ ensureDir(TEMP_DIR);
 const UPLOADS_DIR = path.join(os.tmpdir(), 'betterdesk-rdgen-uploads');
 ensureDir(UPLOADS_DIR);
 
+function isTruthy(v) {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'number') return v === 1;
+    if (typeof v === 'string') {
+        const s = v.trim().toLowerCase();
+        return s === 'true' || s === 'on' || s === '1' || s === 'yes' || s === 'y';
+    }
+    return false;
+}
+
 async function generateCustomClient(params, myuuid, reqHost) {
     const {
         platform, server, key, apiServer,
@@ -51,12 +61,14 @@ async function generateCustomClient(params, myuuid, reqHost) {
         throw new Error('GitHub Integration is not fully configured (GHUSER, GHBEARER, ZIP_PASSWORD).');
     }
 
+    const isTrue = (v) => isTruthy(v);
+
     // Build custom JSON
     const decodedCustom = {
         'override-settings': {},
         'default-settings': {}
     };
-    if (direction && direction !== 'Both') decodedCustom['conn-type'] = direction;
+    if (direction && direction.toLowerCase() !== 'both') decodedCustom['conn-type'] = direction;
     if (installation === 'installationN') decodedCustom['disable-installation'] = 'Y';
     if (settings === 'settingsN') decodedCustom['disable-settings'] = 'Y';
     if (appname && appname.toUpperCase() !== 'RUSTDESK') decodedCustom['app-name'] = appname;
@@ -72,31 +84,31 @@ async function generateCustomClient(params, myuuid, reqHost) {
         }
     }
 
-    decodedCustom['enable-lan-discovery'] = denyLan === 'true' || denyLan === true ? 'N' : 'Y';
-    decodedCustom['allow-auto-disconnect'] = autoClose === 'true' || autoClose === true ? 'Y' : 'N';
+    decodedCustom['enable-lan-discovery'] = isTrue(denyLan) ? 'N' : 'Y';
+    decodedCustom['allow-auto-disconnect'] = isTrue(autoClose) ? 'Y' : 'N';
 
     const pType = permissionsDorO === 'default' ? 'default-settings' : 'override-settings';
-    decodedCustom[pType]['access-mode'] = permissionsType || 'full';
-    decodedCustom[pType]['enable-keyboard'] = enableKeyboard === 'true' || enableKeyboard === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-clipboard'] = enableClipboard === 'true' || enableClipboard === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-file-transfer'] = enableFileTransfer === 'true' || enableFileTransfer === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-audio'] = enableAudio === 'true' || enableAudio === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-tunnel'] = enableTCP === 'true' || enableTCP === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-remote-restart'] = enableRemoteRestart === 'true' || enableRemoteRestart === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-record-session'] = enableRecording === 'true' || enableRecording === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-block-input'] = enableBlockingInput === 'true' || enableBlockingInput === true ? 'Y' : 'N';
-    decodedCustom[pType]['allow-remote-config-modification'] = enableRemoteModi === 'true' || enableRemoteModi === true ? 'Y' : 'N';
-    decodedCustom[pType]['direct-server'] = enableDirectIP === 'true' || enableDirectIP === true ? 'Y' : 'N';
-    decodedCustom[pType]['verification-method'] = hidecm === 'true' || hidecm === true ? 'use-permanent-password' : 'use-both-passwords';
-    decodedCustom[pType]['approve-mode'] = passApproveMode || 'password';
-    decodedCustom[pType]['allow-hide-cm'] = hidecm === 'true' || hidecm === true ? 'Y' : 'N';
-    decodedCustom[pType]['allow-remove-wallpaper'] = removeWallpaper === 'true' || removeWallpaper === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-remote-printer'] = enablePrinter === 'true' || enablePrinter === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-camera'] = enableCamera === 'true' || enableCamera === true ? 'Y' : 'N';
-    decodedCustom[pType]['enable-terminal'] = enableTerminal === 'true' || enableTerminal === true ? 'Y' : 'N';
+    decodedCustom[pType]['access-mode'] = permissionsType || 'custom';
+    decodedCustom[pType]['enable-keyboard'] = isTrue(enableKeyboard) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-clipboard'] = isTrue(enableClipboard) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-file-transfer'] = isTrue(enableFileTransfer) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-audio'] = isTrue(enableAudio) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-tunnel'] = isTrue(enableTCP) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-remote-restart'] = isTrue(enableRemoteRestart) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-record-session'] = isTrue(enableRecording) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-block-input'] = isTrue(enableBlockingInput) ? 'Y' : 'N';
+    decodedCustom[pType]['allow-remote-config-modification'] = isTrue(enableRemoteModi) ? 'Y' : 'N';
+    decodedCustom[pType]['direct-server'] = isTrue(enableDirectIP) ? 'Y' : 'N';
+    decodedCustom[pType]['verification-method'] = isTrue(hidecm) ? 'use-permanent-password' : 'use-both-passwords';
+    decodedCustom[pType]['approve-mode'] = passApproveMode || 'password-click';
+    decodedCustom[pType]['allow-hide-cm'] = isTrue(hidecm) ? 'Y' : 'N';
+    decodedCustom[pType]['allow-remove-wallpaper'] = isTrue(removeWallpaper) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-remote-printer'] = isTrue(enablePrinter) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-camera'] = isTrue(enableCamera) ? 'Y' : 'N';
+    decodedCustom[pType]['enable-terminal'] = isTrue(enableTerminal) ? 'Y' : 'N';
 
     if (defaultManual) {
-        defaultManual.split('\n').forEach(line => {
+        defaultManual.split(/\r?\n/).forEach(line => {
             const idx = line.indexOf('=');
             if (idx > -1) {
                 decodedCustom['default-settings'][line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
@@ -104,7 +116,7 @@ async function generateCustomClient(params, myuuid, reqHost) {
         });
     }
     if (overrideManual) {
-        overrideManual.split('\n').forEach(line => {
+        overrideManual.split(/\r?\n/).forEach(line => {
             const idx = line.indexOf('=');
             if (idx > -1) {
                 decodedCustom['override-settings'][line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
@@ -133,10 +145,10 @@ async function generateCustomClient(params, myuuid, reqHost) {
         genurl: genUrl,
         urlLink: urlLink || 'https://rustdesk.com',
         downloadLink: downloadLink || 'https://rustdesk.com/download',
-        delayFix: delayFix === 'true' || delayFix === true ? 'true' : 'false',
+        delayFix: isTrue(delayFix) ? 'true' : 'false',
         rdgen: 'true',
-        xOffline: xOffline === 'true' || xOffline === true ? 'true' : 'false',
-        removeNewVersionNotif: removeNewVersionNotif === 'true' || removeNewVersionNotif === true ? 'true' : 'false',
+        xOffline: isTrue(xOffline) ? 'true' : 'false',
+        removeNewVersionNotif: isTrue(removeNewVersionNotif) ? 'true' : 'false',
         compname: compname || 'Purslane Ltd',
         androidappid: androidappid || 'com.carriez.rustdesk',
         filename: filename || 'rustdesk'
