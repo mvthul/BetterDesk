@@ -610,6 +610,7 @@
         if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.remove('hidden');
         loadRdgenHistory(true);
         checkAndUpdateProvisionBanner();
+        updateRdgenPermissionUI();
         
         if (connectionDefaults) {
             const serverIPInput = document.getElementById('rdgen-serverIP');
@@ -1014,6 +1015,41 @@
         return config;
     }
 
+    function updateRdgenPermissionUI() {
+        const typeSelect = document.getElementById('rdgen-permissionsType');
+        if (!typeSelect) return;
+
+        const val = typeSelect.value;
+        const permissionCheckboxIds = [
+            'rdgen-enableKeyboard',
+            'rdgen-enableClipboard',
+            'rdgen-enableFileTransfer',
+            'rdgen-enableAudio',
+            'rdgen-enableTCP',
+            'rdgen-enableRemoteRestart',
+            'rdgen-enableRecording',
+            'rdgen-enableBlockingInput',
+            'rdgen-enableRemoteModi',
+            'rdgen-enablePrinter',
+            'rdgen-enableCamera',
+            'rdgen-enableTerminal'
+        ];
+
+        permissionCheckboxIds.forEach(id => {
+            const chk = document.getElementById(id);
+            if (!chk) return;
+            if (val === 'full') {
+                chk.checked = true;
+                chk.disabled = true;
+            } else if (val === 'view' || val === 'screen_share') {
+                chk.checked = false;
+                chk.disabled = true;
+            } else {
+                chk.disabled = false;
+            }
+        });
+    }
+
     // Restore form fields from a saved config object
     function applyRdgenConfig(config) {
         if (!config) return;
@@ -1031,6 +1067,7 @@
                 btn.classList.toggle('active', btn.dataset.platform === platform);
             });
         }
+        updateRdgenPermissionUI();
     }
 
     async function loadRdgenPresets() {
@@ -1144,6 +1181,11 @@
                     if (els['rdgen-passApproveMode']) els['rdgen-passApproveMode'].value = 'password-click';
                 }
             });
+        }
+
+        const permTypeSelect = document.getElementById('rdgen-permissionsType');
+        if (permTypeSelect) {
+            permTypeSelect.addEventListener('change', updateRdgenPermissionUI);
         }
         
         if (els['rdgen-generate-btn']) {
