@@ -32,8 +32,10 @@ const isWaiting = !isSuccess && !isFailed;
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            text-align: center;
-            background: <% if (isFailed) { %>linear-gradient(135deg, #ffcfcf 0%, #e2c3c3 100%)<% } else { %>linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)<% } %>;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        body.is-failed {
+            background: linear-gradient(135deg, #ffcfcf 0%, #e2c3c3 100%);
         }
 
         /* ── Platform logos ─────────────────────────────────────────────────── */
@@ -112,7 +114,7 @@ const isWaiting = !isSuccess && !isFailed;
         .download-link-fail:hover { opacity: 0.8; }
     </style>
 </head>
-<body>
+<body class="<%= isFailed ? 'is-failed' : '' %>">
 
     <!-- Platform logo SVGs (shown/hidden by JS) -->
     <svg id="windowsLogo" class="platform-logo" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
@@ -265,12 +267,11 @@ const isWaiting = !isSuccess && !isFailed;
     </div>
     <% } %>
 
+    <script id="buildConfig" type="application/json"><%- JSON.stringify({ platform, uuid, filename, isWaiting }) %></script>
     <script>
     (function () {
-        const platform = <%- JSON.stringify(platform) %>;
-        const uuid     = <%- JSON.stringify(uuid) %>;
-        const filename = <%- JSON.stringify(filename) %>;
-        const isWaiting = <%- JSON.stringify(isWaiting) %>;
+        const buildConfig = JSON.parse(document.getElementById('buildConfig').textContent);
+        const { platform, uuid, filename, isWaiting } = buildConfig;
 
         // ── Platform logo & title ──────────────────────────────────────────
         function updatePlatformUI() {
