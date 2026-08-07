@@ -166,7 +166,8 @@ const isWaiting = !isSuccess && !isFailed;
     <!-- ── WAITING ─────────────────────────────────────────────────────────── -->
     <% if (isWaiting) { %>
     <div id="waitingView">
-        <h2 class="loading-text">Build in Progress</h2>
+        <h1 style="margin: 0 0 6px 0; font-size: 1.6rem; font-weight: 700; color: #111827;"><%= run.appname || run.filename || 'RustDesk Client' %></h1>
+        <h2 class="loading-text" style="font-size: 1.1rem; color: #4b5563; font-weight: 500;">Build in Progress</h2>
         <div class="loading-spinner"></div>
         <div class="progress-bar">
             <div id="progressBarFill" class="progress-bar-fill"></div>
@@ -193,7 +194,8 @@ const isWaiting = !isSuccess && !isFailed;
     <!-- ── SUCCESS ─────────────────────────────────────────────────────────── -->
     <% if (isSuccess) { %>
     <div id="successView">
-        <h2 class="success-text">Build Generated Successfully</h2>
+        <h1 style="margin: 0 0 6px 0; font-size: 1.6rem; font-weight: 700; color: #111827;"><%= run.appname || run.filename || 'RustDesk Client' %></h1>
+        <h2 class="success-text" style="font-size: 1.1rem; color: #16a34a; font-weight: 600;">Build Generated Successfully</h2>
         <div class="download-section">
             <% if (platform === 'windows') { %>
                 <a href="/api/generator/rdgen/download/<%= uuid %>/<%= filename %>.exe" class="download-link">Download <%= filename %>.exe</a>
@@ -231,7 +233,8 @@ const isWaiting = !isSuccess && !isFailed;
     <!-- ── FAILURE ─────────────────────────────────────────────────────────── -->
     <% if (isFailed) { %>
     <div class="error-container">
-        <h2 class="error-header">Workflow Interrupted</h2>
+        <h1 style="margin: 0 0 6px 0; font-size: 1.6rem; font-weight: 700; color: #111827;"><%= run.appname || run.filename || 'RustDesk Client' %></h1>
+        <h2 class="error-header" style="font-size: 1.1rem; margin-top: 4px;">Workflow Interrupted</h2>
         <div class="warning-box">
             <strong>Warning:</strong> The build process did not complete successfully. Some files may be missing. You can attempt to download the available files below.
         </div>

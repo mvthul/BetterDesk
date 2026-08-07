@@ -591,21 +591,23 @@
     }
 
     function showRdgenForm() {
-        state.currentId = 'rdgen';
-        state.currentBundle = null;
         state.productType = 'rdgen';
         stopBuildsPoll();
         
-        els['gen-editor-title'].innerHTML = `<span class="material-icons">handyman</span> ${escapeText(t('generator.rdgen_form_title', 'RustDesk Custom Client Builder'))}`;
+        if (!state.rdgenActivePresetId) {
+            els['gen-editor-title'].innerHTML = `<span class="material-icons">handyman</span> ${escapeText(t('generator.rdgen_form_title', 'RustDesk Custom Client Builder'))}`;
+            els['gen-delete-btn'].classList.add('hidden');
+        } else {
+            els['gen-delete-btn'].classList.remove('hidden');
+        }
         
         els['gen-empty-state'].classList.add('hidden');
         els['gen-editor-form'].classList.add('hidden');
         els['gen-revoke-btn'].classList.add('hidden');
-        els['gen-delete-btn'].classList.add('hidden');
-        els['gen-save-btn'].classList.add('hidden');
+        els['gen-save-btn'].classList.remove('hidden');
+        els['gen-save-btn'].disabled = false;
         
         if (els['gen-rdgen-form']) els['gen-rdgen-form'].classList.remove('hidden');
-        loadRdgenPresets();
         loadRdgenHistory(true);
         checkAndUpdateProvisionBanner();
         
@@ -636,6 +638,20 @@
         state.slugManual = false;
         state.productType = productType || 'agent-client';
         stopBuildsPoll();
+        if (state.productType === 'rdgen') {
+            state.rdgenActivePresetId = null;
+            showRdgenForm();
+            els['gen-editor-title'].innerHTML = `<span class="material-icons">add_circle</span> ${escapeText(t('generator.rdgen_new_config', 'New RustDesk Configuration'))}`;
+            els['gen-delete-btn'].classList.add('hidden');
+            els['gen-save-btn'].classList.remove('hidden');
+            els['gen-save-btn'].disabled = false;
+            const appnameInput = document.getElementById('rdgen-appname');
+            const exenameInput = document.getElementById('rdgen-exename');
+            if (appnameInput) appnameInput.value = '';
+            if (exenameInput) exenameInput.value = 'rustdesk';
+            if (appnameInput) appnameInput.focus();
+            return;
+        }
         const titleKey = state.productType === 'rdclient'
             ? 'generator.rdclient_new_bundle'
             : state.productType === 'support-agent'
@@ -724,6 +740,52 @@
 
     async function saveBundle() {
         clearErrors();
+        if (state.productType === 'rdgen') {
+            const appnameInput = document.getElementById('rdgen-appname');
+            const exenameInput = document.getElementById('rdgen-exename');
+            const name = (appnameInput?.value || exenameInput?.value || 'RustDesk Client').trim();
+            if (!name) {
+                showErrors([t('generator.errors.name_required', 'Configuration name is required')]);
+                return;
+            }
+            els['gen-save-btn'].disabled = true;
+            try {
+                const config = collectRdgenConfig();
+                let res;
+                if (state.rdgenActivePresetId && state.currentId !== 'new') {
+                    res = await fetch(`/api/generator/rdgen/presets/${encodeURIComponent(state.rdgenActivePresetId)}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf() },
+                        body: JSON.stringify({ name, config })
+                    });
+                } else {
+                    res = await fetch('/api/generator/rdgen/presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf() },
+                        body: JSON.stringify({ name, config })
+                    });
+                }
+                const data = await res.json();
+                if (data.success) {
+                    notify.success(t('generator.saved', 'Configuration saved'));
+                    if (data.preset && data.preset.id) {
+                        state.rdgenActivePresetId = String(data.preset.id);
+                        state.currentId = String(data.preset.id);
+                    }
+                    await loadRdgenSidebarPresets();
+                    els['gen-delete-btn'].classList.remove('hidden');
+                    els['gen-save-btn'].disabled = false;
+                } else {
+                    notify.error(data.error || 'Failed to save configuration');
+                    els['gen-save-btn'].disabled = false;
+                }
+            } catch (e) {
+                notify.error(e.message);
+                els['gen-save-btn'].disabled = false;
+            }
+            return;
+        }
+
         const payload = {
             name: els['gen-name'].value.trim(),
             slug: readSlugInput(),
@@ -774,6 +836,30 @@
     }
 
     async function deleteBundle() {
+        if (state.productType === 'rdgen') {
+            if (!state.rdgenActivePresetId) return;
+            if (!confirm(t('generator.confirm_delete', 'Delete this configuration permanently? This cannot be undone.'))) return;
+            try {
+                const res = await fetch(`/api/generator/rdgen/presets/${encodeURIComponent(state.rdgenActivePresetId)}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-Token': csrf() }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    notify.success(t('generator.deleted', 'Configuration deleted'));
+                    state.rdgenActivePresetId = null;
+                    state.currentId = 'rdgen';
+                    setEditorForNew('rdgen');
+                    await loadRdgenSidebarPresets();
+                } else {
+                    notify.error(data.error || 'Failed to delete configuration');
+                }
+            } catch (e) {
+                notify.error(e.message);
+            }
+            return;
+        }
+
         if (!state.currentBundle) return;
         if (!confirm(t('generator.confirm_delete', 'Delete this bundle permanently? This cannot be undone.'))) return;
         try {
@@ -877,7 +963,7 @@
         const rdBtn = $('gen-new-rdclient');
         if (rdBtn) rdBtn.addEventListener('click', () => setEditorForNew('rdclient'));
         const rdgenBtn = $('gen-new-rdgen');
-        if (rdgenBtn) rdgenBtn.addEventListener('click', showRdgenForm);
+        if (rdgenBtn) rdgenBtn.addEventListener('click', () => setEditorForNew('rdgen'));
         els['gen-save-btn'].addEventListener('click', saveBundle);
         els['gen-rebuild-btn'].addEventListener('click', rebuildAllBuilds);
         els['gen-revoke-btn'].addEventListener('click', toggleRevoke);
@@ -1279,21 +1365,30 @@
     function renderRdgenHistory(runs) {
         const list = document.getElementById('rdgen-history-list');
         if (!list) return;
-        if (!runs || !runs.length) {
-            list.innerHTML = '<p class="text-muted" style="text-align:center;margin:20px 0;">No builds yet. Click Generate to start a build.</p>';
-            return;
-        }
-        list.innerHTML = runs.map(run => {
-            const isTerminal = TERMINAL_STATUSES.has(run.status);
-            const isSuccess  = run.status === 'success';
-            const color      = statusColor(run.status);
-            const icon       = statusIcon(run.status);
+            // If a specific preset is selected, filter history runs for that configuration name
+            let filteredRuns = runs;
+            if (state.productType === 'rdgen' && state.rdgenActivePresetId) {
+                const activeAppName = (document.getElementById('rdgen-appname')?.value || document.getElementById('rdgen-exename')?.value || '').trim().toLowerCase();
+                if (activeAppName) {
+                    filteredRuns = runs.filter(r => (r.appname || '').toLowerCase() === activeAppName || (r.filename || '').toLowerCase() === activeAppName);
+                }
+            }
 
-            // ── Title line: GitHub run name (#N) or fallback to filename ──────
-            const ghRunLabel = run.gh_run_name
-                ? `${escapeText(run.gh_run_name)}${run.gh_run_number ? ' <span style="opacity:.6">#' + escapeText(String(run.gh_run_number)) + '</span>' : ''}`
-                : escapeText(run.filename || 'Build');
-            const platformBadge = `<span style="color:var(--color-text-muted,#888);font-weight:400;font-size:0.8rem;"> ${escapeText(platformLabel(run.platform))}</span>`;
+            if (!filteredRuns.length) {
+                list.innerHTML = '<p class="text-muted" style="text-align:center;margin:20px 0;">No builds yet for this configuration. Click Generate to start a build.</p>';
+                return;
+            }
+
+            list.innerHTML = filteredRuns.map(run => {
+                const isTerminal = TERMINAL_STATUSES.has(run.status);
+                const isSuccess  = run.status === 'success';
+                const color      = statusColor(run.status);
+                const icon       = statusIcon(run.status);
+
+                // ── Title line: Configuration / App name + Platform ──────
+                const configName = run.appname || run.filename || 'RustDesk Client';
+                const ghRunLabel = `${escapeText(configName)}${run.gh_run_number ? ' <span style="opacity:.6">#' + escapeText(String(run.gh_run_number)) + '</span>' : ''}`;
+                const platformBadge = `<span style="color:var(--color-text-muted,#888);font-weight:400;font-size:0.8rem;"> ${escapeText(platformLabel(run.platform))}</span>`;
 
             // ── Job progress line ──────────────────────────────────────────────
             let progressDetail = '';
@@ -1406,9 +1501,15 @@
                 document.querySelectorAll('.bundle-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
                 state.rdgenActivePresetId = String(p.id);
+                state.currentId = String(p.id);
                 showRdgenForm();
+                els['gen-editor-title'].innerHTML = `<span class="material-icons">edit</span> ${escapeText(p.name)}`;
+                els['gen-delete-btn'].classList.remove('hidden');
+                els['gen-save-btn'].classList.remove('hidden');
+                els['gen-save-btn'].disabled = false;
                 try { applyRdgenConfig(JSON.parse(p.config_json)); } catch (_) {}
                 notify.info(`Loaded: ${p.name}`);
+                loadRdgenHistory(true);
             });
             root.appendChild(item);
         });

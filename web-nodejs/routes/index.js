@@ -77,8 +77,8 @@ function requireJsonContentType(req, res, next) {
     if (!req.path.startsWith('/api/')) {
         return next();
     }
-    // Skip for specific routes that accept form data (file uploads / generator forms)
-    if (req.path.includes('/upload') || req.path.includes('/import') || req.path.includes('/generate')) {
+    // Skip for specific routes that accept form data (file uploads / generator forms / GitHub build artifact callbacks)
+    if (req.path.includes('/upload') || req.path.includes('/import') || req.path.includes('/generate') || req.path.includes('/save_custom_client')) {
         return next();
     }
     // Check Content-Type

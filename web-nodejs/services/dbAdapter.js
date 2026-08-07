@@ -3776,6 +3776,17 @@ function createSqliteAdapter(config) {
             db.prepare('DELETE FROM rdgen_presets WHERE id = ?').run(id);
         },
 
+        async getRdgenPreset(id) {
+            const db = openAuth();
+            return db.prepare('SELECT * FROM rdgen_presets WHERE id = ?').get(id) || null;
+        },
+
+        async updateRdgenPreset(id, name, configJson) {
+            const db = openAuth();
+            db.prepare("UPDATE rdgen_presets SET name = ?, config_json = ?, updated_at = datetime('now') WHERE id = ?").run(name, configJson, id);
+            return db.prepare('SELECT * FROM rdgen_presets WHERE id = ?').get(id) || null;
+        },
+
         // ---- Integration Housekeeping ----
 
         async runIntegrationHousekeeping() {
@@ -7212,6 +7223,16 @@ function createPostgresAdapter() {
 
         async deleteRdgenPreset(id) {
             await q('DELETE FROM rdgen_presets WHERE id = $1', [id]);
+        },
+
+        async getRdgenPreset(id) {
+            const res = await q('SELECT * FROM rdgen_presets WHERE id = $1', [id]);
+            return res.rows[0] || null;
+        },
+
+        async updateRdgenPreset(id, name, configJson) {
+            const res = await q('UPDATE rdgen_presets SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3 RETURNING *', [name, configJson, id]);
+            return res.rows[0] || null;
         },
 
         // ---- Integration Housekeeping ----

@@ -264,6 +264,23 @@ router.post('/api/generator/rdgen/presets', requireAuth, async (req, res) => {
     }
 });
 
+// Update a preset
+router.put('/api/generator/rdgen/presets/:id', requireAuth, async (req, res) => {
+    try {
+        let { name, config } = req.body || {};
+        if (typeof config === 'string') {
+            try { config = JSON.parse(config); } catch (_) {}
+        }
+        if (!name || !config || typeof config !== 'object') {
+            return res.status(400).json({ success: false, error: 'name and config are required' });
+        }
+        const preset = await dbAdapter.updateRdgenPreset(req.params.id, name, JSON.stringify(config));
+        res.json({ success: true, preset });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // Delete a preset
 router.delete('/api/generator/rdgen/presets/:id', requireAuth, async (req, res) => {
     try {
