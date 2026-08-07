@@ -169,11 +169,20 @@ const isWaiting = !isSuccess && !isFailed;
         <h1 style="margin: 0 0 6px 0; font-size: 1.6rem; font-weight: 700; color: #111827;"><%= run.appname || run.filename || 'RustDesk Client' %></h1>
         <h2 class="loading-text" style="font-size: 1.1rem; color: #4b5563; font-weight: 500;">Build in Progress</h2>
         <div class="loading-spinner"></div>
-        <div class="progress-bar">
+        <div id="jobProgressWrapper" style="display:none;max-width:380px;margin:15px auto;text-align:left;">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;color:#4b5563;margin-bottom:4px;">
+                <span id="jobProgressText" style="color:#3b82f6;font-weight:600;">0/0 jobs completed</span>
+                <span id="activeJobText" style="font-style:italic;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280;"></span>
+            </div>
+            <div style="width:100%;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+                <div id="jobProgressFill" style="height:6px;background:#3b82f6;border-radius:3px;width:0%;transition:width .5s ease;"></div>
+            </div>
+        </div>
+        <div id="indeterminateProgress" class="progress-bar">
             <div id="progressBarFill" class="progress-bar-fill"></div>
         </div>
         <p class="status-text">This can take 30–45 minutes. You can leave this page open or come back later.</p>
-        <p class="status-text">Status: <span id="statusText"><%= run.status || 'queued' %></span></p>
+        <p class="status-text">Status: <span id="statusText" style="text-transform:capitalize;font-weight:600;"><%= run.status || 'queued' %></span></p>
 
         <% if (logUrl) { %>
         <div class="log-container">
@@ -329,7 +338,7 @@ const isWaiting = !isSuccess && !isFailed;
 
         updatePlatformUI();
 
-        // ── Waiting: status poll & auto-redirect (matches upstream 30s logic) ─
+        // ── Waiting: live status poll & job progress updates ─────────────────
         if (isWaiting) {
             const TERMINAL = ['success', 'failure', 'cancelled', 'timed_out', 'skipped', 'action_required'];
             let pollTimer = null;
@@ -343,21 +352,44 @@ const isWaiting = !isSuccess && !isFailed;
 
                     const status = j.status;
                     const statusEl = document.getElementById('statusText');
-                    if (statusEl) statusEl.textContent = status;
+                    if (statusEl) {
+                        let label = status;
+                        if (j.gh_status === 'in_progress') label = 'in progress';
+                        else if (j.gh_status === 'queued') label = 'queued';
+                        statusEl.textContent = label;
+                    }
+
+                    // Update live job progress elements
+                    if (j.gh_jobs_total > 0) {
+                        const wrapper = document.getElementById('jobProgressWrapper');
+                        const indeterminate = document.getElementById('indeterminateProgress');
+                        const progressText = document.getElementById('jobProgressText');
+                        const activeJobText = document.getElementById('activeJobText');
+                        const progressFill = document.getElementById('jobProgressFill');
+
+                        if (wrapper) wrapper.style.display = 'block';
+                        if (indeterminate) indeterminate.style.display = 'none';
+                        if (progressText) progressText.textContent = `${j.gh_jobs_completed}/${j.gh_jobs_total} jobs completed`;
+                        if (activeJobText) activeJobText.textContent = j.gh_active_job ? `▶ ${j.gh_active_job}` : '';
+                        if (progressFill) {
+                            const pct = Math.round((j.gh_jobs_completed / j.gh_jobs_total) * 100);
+                            progressFill.style.width = `${pct}%`;
+                            if (j.gh_jobs_failed > 0) progressFill.style.backgroundColor = '#ef4444';
+                        }
+                    }
 
                     if (TERMINAL.includes(status)) {
-                        // Redirect to this same URL — server will now render the correct state
                         clearInterval(pollTimer);
                         window.location.reload();
                     }
                 } catch (_) {}
             }
 
-            // Poll every 30 seconds exactly as upstream does (30s timeout before redirect)
-            pollTimer = setInterval(poll, 30000);
+            // Poll every 15 seconds
+            pollTimer = setInterval(poll, 15000);
 
-            // Also run once quickly to pick up fast completions
-            setTimeout(poll, 5000);
+            // Initial quick poll to populate status immediately
+            setTimeout(poll, 1200);
         }
     })();
     </script>

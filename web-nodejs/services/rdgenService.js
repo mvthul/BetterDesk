@@ -262,25 +262,46 @@ async function getRunStatus(uuidVal) {
     let run = await dbAdapter.getRdgenRun(uuidVal);
     if (!run) return { found: false };
 
-    const ghUser = process.env.GHUSER;
+    const ghUser   = process.env.GHUSER;
     const repoName = process.env.REPONAME || 'rdgen';
     const ghBearer = process.env.GHBEARER;
 
-    if (run.status !== 'success' && run.status !== 'failure' && run.status !== 'cancelled' && run.status !== 'timed_out' && run.status !== 'skipped' && run.github_run_id) {
+    let gh_jobs_total = 0;
+    let gh_jobs_completed = 0;
+    let gh_jobs_failed = 0;
+    let gh_active_job = null;
+    let gh_run_name = null;
+    let gh_run_number = null;
+    let gh_status = run.status;
+
+    if (run.status !== 'success' && run.status !== 'failure' && run.status !== 'cancelled' && run.status !== 'timed_out' && run.status !== 'skipped' && run.github_run_id && ghUser && ghBearer) {
         try {
+            const headers = {
+                'Authorization': `Bearer ${ghBearer}`,
+                'Accept': 'application/vnd.github+json'
+            };
             const api_url = `https://api.github.com/repos/${ghUser}/${repoName}/actions/runs/${run.github_run_id}`;
-            const gh_response = await axios.get(api_url, {
-                headers: {
-                    'Authorization': `Bearer ${ghBearer}`,
-                    'Accept': 'application/vnd.github+json'
-                }
-            });
+            const gh_response = await axios.get(api_url, { headers });
             
             if (gh_response.status === 200) {
                 const gh_data = gh_response.data;
-                if (gh_data.status === 'completed') {
+                gh_run_name   = gh_data.display_title || gh_data.name || null;
+                gh_run_number = gh_data.run_number || null;
+                gh_status     = gh_data.status;
+                if (gh_data.status === 'completed' && gh_data.conclusion) {
                     run = await dbAdapter.updateRdgenRun(uuidVal, { status: gh_data.conclusion });
                 }
+            }
+
+            const jobsUrl = `https://api.github.com/repos/${ghUser}/${repoName}/actions/runs/${run.github_run_id}/jobs`;
+            const jobsRes = await axios.get(jobsUrl, { headers });
+            if (jobsRes.status === 200) {
+                const jobs = jobsRes.data.jobs || [];
+                gh_jobs_total     = jobs.length;
+                gh_jobs_completed = jobs.filter(j => j.status === 'completed').length;
+                gh_jobs_failed    = jobs.filter(j => j.conclusion === 'failure').length;
+                const activeJob   = jobs.find(j => j.status === 'in_progress');
+                gh_active_job     = activeJob ? activeJob.name : null;
             }
         } catch (e) {
             console.error(`Error checking GitHub: ${e.message}`);
@@ -291,6 +312,13 @@ async function getRunStatus(uuidVal) {
         found: true,
         status: run.status,
         github_log_url: run.log_url || (run.github_run_id ? `https://github.com/${ghUser}/${repoName}/actions/runs/${run.github_run_id}` : null),
+        gh_jobs_total,
+        gh_jobs_completed,
+        gh_jobs_failed,
+        gh_active_job,
+        gh_run_name,
+        gh_run_number,
+        gh_status,
         gh_run: run
     };
 }

@@ -1188,31 +1188,19 @@
                         const uuid = data.uuid;
                         const portalUrl = `/rdgen/${uuid}`;
 
-                        // Show brief "dispatching" message, then transition to portal link
-                        els['rdgen-success-msg'].style.display = 'block';
-                        els['rdgen-success-msg'].style.color = '';
-                        els['rdgen-success-msg'].innerHTML =
-                            `<span style="display:flex;align-items:center;gap:10px;">` +
-                            `<span class="material-icons rotating" style="font-size:18px;color:var(--color-accent)">sync</span>` +
-                            `Build dispatched to GitHub Actions…</span>`;
-
                         btn.disabled = false;
                         btn.innerHTML = originalText;
 
-                        // After 2 seconds, show the portal link prominently
+                        els['rdgen-success-msg'].style.display = 'block';
+                        els['rdgen-success-msg'].innerHTML =
+                            `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:8px;margin-top:10px;">` +
+                            `<span class="material-icons" style="font-size:18px;color:#22c55e;">check_circle</span>` +
+                            `<span style="color:#22c55e;font-weight:600;font-size:0.88rem;">Build started! Tracking progress in the list below.</span></div>`;
+
+                        // Hide success message after 5 seconds
                         setTimeout(() => {
-                            els['rdgen-success-msg'].innerHTML =
-                                `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:10px;">` +
-                                `<span style="color:var(--color-success);font-weight:600;">✓ Build started!</span>` +
-                                `<a href="${portalUrl}" target="_blank" rel="noopener"` +
-                                ` style="display:inline-flex;align-items:center;gap:8px;background:var(--color-primary,#3b82f6);` +
-                                `color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;` +
-                                `box-shadow:0 4px 14px rgba(59,130,246,.35);transition:transform .15s">` +
-                                `<span class="material-icons" style="font-size:18px">open_in_new</span>` +
-                                `View Build Status &amp; Download</a>` +
-                                `<span style="color:var(--color-text-muted);font-size:13px;">` +
-                                `The build page updates live when GitHub Actions completes.</span></div>`;
-                        }, 2000);
+                            if (els['rdgen-success-msg']) els['rdgen-success-msg'].style.display = 'none';
+                        }, 5000);
 
                         // Load history immediately & start polling
                         setTimeout(() => loadRdgenHistory(true), 500);
