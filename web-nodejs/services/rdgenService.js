@@ -39,16 +39,18 @@ async function generateCustomClient(params, myuuid, reqHost) {
     const apiServer = params.apiServer || '';
     const filename = params.filename || params.exename || 'rustdesk';
     const permPass = params.permPass || params.permanentPassword || '';
+    const delayFix = params.delayFix !== undefined ? params.delayFix : (params['fix-delay'] !== undefined ? params['fix-delay'] : true);
+    const direction = params.direction || params['rdgen-direction'] || 'both';
 
     const {
         platform,
         iconlink_url, iconlink_uuid, iconlink_file,
         logolink_url, logolink_uuid, logolink_file,
         privacylink_url, privacylink_uuid, privacylink_file,
-        appname, urlLink, downloadLink, delayFix,
+        appname, urlLink, downloadLink,
         xOffline, removeNewVersionNotif, compname, androidappid,
         selfhosted,
-        direction, installation, settings, theme, themeDorO,
+        installation, settings, theme, themeDorO,
         denyLan, enableDirectIP, autoClose, permissionsDorO, permissionsType,
         enableKeyboard, enableClipboard, enableFileTransfer, enableAudio, enableTCP,
         enableRemoteRestart, enableRecording, enableBlockingInput, enableRemoteModi,
@@ -162,7 +164,7 @@ async function generateCustomClient(params, myuuid, reqHost) {
         xOffline: isTrue(xOffline) ? 'true' : 'false',
         removeNewVersionNotif: isTrue(removeNewVersionNotif) ? 'true' : 'false',
         compname: compname || 'Purslane Ltd',
-        androidappid: androidappid || 'com.carriez.rustdesk',
+        androidappid: androidappid || 'com.carriez.flutter_hbb',
         filename: filename || 'rustdesk'
     };
 
