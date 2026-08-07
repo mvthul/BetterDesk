@@ -1427,6 +1427,9 @@
             const portalLink = `<a href="/rdgen/${escapeText(run.uuid)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:4px 8px;">
                 <span class="material-icons" style="font-size:14px;">launch</span> Build Portal
             </a>`;
+            const deleteBtn = `<button type="button" class="btn btn-secondary btn-sm btn-delete-rdgen-run" data-uuid="${escapeText(run.uuid)}" title="Remove build record" style="font-size:0.75rem;padding:4px 8px;color:#f87171;border-color:rgba(239,68,68,0.3);">
+                <span class="material-icons" style="font-size:14px;">delete</span>
+            </button>`;
             const downloads = isSuccess ? buildDownloadLinks(run) : '';
 
             return `<div class="rdgen-history-item" data-uuid="${escapeText(run.uuid)}" style="padding:14px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);margin-bottom:10px;background:var(--color-bg,#111120);">
@@ -1440,16 +1443,43 @@
                             <div style="font-size:0.72rem;color:${color};margin-top:2px;text-transform:capitalize;">${escapeText(statusLabel)}</div>
                         </div>
                     </div>
-                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                    <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
                         ${logLink}
                         ${portalLink}
+                        ${deleteBtn}
                     </div>
                 </div>
                 ${progressDetail}
                 ${downloads}
-                <div style="font-size:0.68rem;color:var(--color-text-muted,#888);margin-top:8px;opacity:.7;">${escapeText(run.uuid)} · ${escapeText((run.created_at || '').substring(0,19).replace('T',' '))}</div>
+                <div style="font-size:0.68rem;color:var(--color-text-muted,#888);margin-top:8px;opacity:.7;">${escapeText(run.uuid)} &middot; ${escapeText((run.created_at || '').substring(0,19).replace('T',' '))}</div>
             </div>`;
         }).join('');
+
+        // Bind delete build record click handlers
+        list.querySelectorAll('.btn-delete-rdgen-run').forEach(btn => {
+            btn.addEventListener('click', async (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const uuid = btn.dataset.uuid;
+                if (!uuid) return;
+                if (!confirm('Remove this build record from history?')) return;
+                try {
+                    const res = await fetch(`/api/generator/rdgen/runs/${encodeURIComponent(uuid)}`, {
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-Token': csrf() }
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        notify.success('Build record removed');
+                        loadRdgenHistory(true);
+                    } else {
+                        notify.error(data.error || 'Failed to remove build record');
+                    }
+                } catch (err) {
+                    notify.error(err.message);
+                }
+            });
+        });
     }
 
 

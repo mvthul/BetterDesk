@@ -359,4 +359,20 @@ router.get('/api/generator/rdgen/runs', requireAuth, async (req, res) => {
     }
 });
 
+// Delete a build run record & cached build artifacts
+router.delete('/api/generator/rdgen/runs/:uuid', requireAuth, async (req, res) => {
+    try {
+        const uuid = req.params.uuid;
+        if (!/^[0-9a-f-]{8,}$/i.test(uuid)) return res.status(400).json({ success: false, error: 'Invalid UUID' });
+        await dbAdapter.deleteRdgenRun(uuid);
+        const buildDir = path.join(os.tmpdir(), 'betterdesk-rdgen-builds', uuid);
+        if (fs.existsSync(buildDir)) {
+            try { fs.rmSync(buildDir, { recursive: true, force: true }); } catch (_) {}
+        }
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;

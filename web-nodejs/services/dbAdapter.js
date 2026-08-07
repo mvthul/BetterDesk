@@ -3740,6 +3740,11 @@ function createSqliteAdapter(config) {
             return db.prepare('SELECT * FROM rdgen_runs ORDER BY created_at DESC LIMIT ?').all(limit);
         },
 
+        async deleteRdgenRun(uuid) {
+            const db = openAuth();
+            db.prepare('DELETE FROM rdgen_runs WHERE uuid = ?').run(uuid);
+        },
+
         async updateRdgenRun(uuid, updates) {
             const db = openAuth();
             const setClauses = [];
@@ -7186,6 +7191,10 @@ function createPostgresAdapter() {
         async listRdgenRuns(limit = 20) {
             const res = await q('SELECT * FROM rdgen_runs ORDER BY created_at DESC LIMIT $1', [limit]);
             return res.rows;
+        },
+
+        async deleteRdgenRun(uuid) {
+            await q('DELETE FROM rdgen_runs WHERE uuid = $1', [uuid]);
         },
 
         async updateRdgenRun(uuid, updates) {
