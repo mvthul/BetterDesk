@@ -79,6 +79,7 @@ async function generateCustomClient(params, myuuid, reqHost) {
         'override-settings': {},
         'default-settings': {}
     };
+
     if (direction && direction.toLowerCase() !== 'both') decodedCustom['conn-type'] = direction;
     if (installation === 'installationN') decodedCustom['disable-installation'] = 'Y';
     if (settings === 'settingsN') decodedCustom['disable-settings'] = 'Y';

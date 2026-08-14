@@ -231,3 +231,6 @@ t
 k-server
 
 docs/security/PROJECT_SECURITY_ANALYSIS_2026-05-19.md
+rustdesk-aarch64.apk
+rustdesk-x86_64.apk
+rustdesk.exe
